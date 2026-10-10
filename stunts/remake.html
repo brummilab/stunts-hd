@@ -1,0 +1,129 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Restunts Remake</title>
+<style>
+  :root { --ink: #f4f1e8; --dim: #c9c3b2; --panel: rgb(10 12 18 / .72); --red: #e8402f; --amber: #ffc23d; --mono: ui-monospace, Menlo, monospace; color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #000; color: var(--ink); font: 14px/1.4 system-ui, sans-serif; overflow: hidden; }
+  canvas#view { display: block; width: 100%; height: 100%; }
+  .hud { position: fixed; inset: 0; pointer-events: none; }
+  .bar { position: absolute; left: 12px; top: 12px; display: flex; gap: 8px; flex-wrap: wrap; pointer-events: auto; }
+  .bar button, .bar select { font: 600 12px var(--mono); background: var(--panel); color: var(--ink); border: 1px solid #ffffff2a; border-radius: 4px; padding: 6px 9px; cursor: pointer; }
+  .bar button[aria-pressed="true"] { border-color: var(--amber); color: var(--amber); }
+  .msg { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); font: 700 30px var(--mono); text-shadow: 0 3px 0 #000, 0 0 12px #000; letter-spacing: .06em; text-align: center; white-space: pre-line; }
+  .flash { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); font: 600 15px var(--mono); background: var(--panel); padding: 5px 10px; border-radius: 4px; }
+  .timer { position: absolute; right: 14px; top: 12px; text-align: right; font: 700 26px var(--mono); text-shadow: 0 2px 0 #000; }
+  .timer small { display: block; font: 500 12px var(--mono); color: var(--dim); }
+  .gauges { position: absolute; right: 14px; bottom: 14px; display: flex; gap: 14px; align-items: flex-end; font-family: var(--mono); text-shadow: 0 2px 0 #000; }
+  .spd { font: 700 44px/1 var(--mono); text-align: right; }
+  .spd small { font-size: 14px; color: var(--dim); }
+  .gear { font: 700 28px/1 var(--mono); color: var(--amber); }
+  .rev { width: 180px; height: 10px; background: #0008; border: 1px solid #fff3; border-radius: 2px; overflow: hidden; }
+  .rev i { display: block; height: 100%; background: linear-gradient(90deg, #6fd36a 0 70%, var(--amber) 70% 88%, var(--red) 88%); }
+  .help { position: absolute; left: 12px; bottom: 12px; font: 12px var(--mono); color: var(--dim); background: var(--panel); padding: 7px 10px; border-radius: 4px; line-height: 1.6; }
+  .help b { color: var(--ink); }
+  .dash { position: absolute; left: 0; bottom: 0; width: 100vw; height: 62.5vw; image-rendering: pixelated; }
+  body.cockpit .gauges { display: none; }
+</style>
+<canvas id="view"></canvas>
+<div class="hud">
+  <canvas class="dash" id="dash" hidden></canvas>
+  <div class="bar">
+    <select id="carSel" aria-label="Car"></select>
+    <button id="classic" aria-pressed="true">Classic flat colours</button>
+    <button id="sound" aria-pressed="false">Sound off</button>
+  </div>
+  <div class="timer" id="timer">0:00.00<small id="best"></small></div>
+  <div class="msg" id="msg">Loading Stunts data…</div>
+  <div class="flash" id="flash" hidden></div>
+  <div class="gauges" id="gauges"><div><div class="rev"><i id="rev"></i></div></div><div class="gear" id="gear">1</div><div class="spd" id="spd">0<small> km/h</small></div></div>
+  <div class="help" id="help"><b>↑</b> gas · <b>↓</b> brake / reverse · <b>← →</b> steer · <b>Space</b> handbrake · <b>R</b> recover<br><b>1</b> in-car · <b>2</b> chase · <b>3</b> TV · <b>4</b> orbit · <b>Esc</b> restart</div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="math.js"></script>
+<script src="data.js"></script>
+<script src="trackscene.js"></script>
+<script src="physics.js"></script>
+<script src="assets.js"></script>
+<script src="world.js"></script>
+<script src="audio.js"></script>
+<script src="game.js"></script>
+<script>
+(async function () {
+  const $ = id => document.getElementById(id);
+  const canvas = $('view');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, logarithmicDepthBuffer: true });
+  renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 6000);
+  function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+  addEventListener('resize', resize); resize();
+
+  let flashTimer;
+  // In-car view: the car's own dashboard at 320x200, scaled up with hard pixels
+  const dash = $('dash'), dctx = dash.getContext('2d'); dash.width = 320; dash.height = 200;
+  const spriteCache = new Map();
+  const cached = sp => { if (!sp) return null; if (!spriteCache.has(sp)) { const t = document.createElement('canvas'); t.width = sp.w; t.height = sp.h; t.getContext('2d').putImageData(sp.img, 0, 0); spriteCache.set(sp, t); } return spriteCache.get(sp); };
+  function drawDash(g) {
+    const D = g.dash, spec = g.carData.spec; if (!D) return;
+    dctx.clearRect(0, 0, 320, 200);
+    for (const k of ['dash', 'ins2']) { const sp = D[k]; if (sp) dctx.drawImage(cached(sp), sp.x, sp.y); }
+    const wheel = g.car.steer < -0.12 ? D.whl1 : g.car.steer > 0.12 ? D.whl3 : D.whl2;
+    if (wheel) dctx.drawImage(cached(wheel), wheel.x, wheel.y);
+    const ins = D.ins2, ox = ins ? ins.x : 64, oy = ins ? ins.y : 148;
+    const needle = (G, idx, colour) => {
+      const i = Math.max(0, Math.min(G.n - 1, Math.round(idx))), p = G.pts[i];
+      dctx.strokeStyle = colour; dctx.lineWidth = 1; dctx.beginPath();
+      dctx.moveTo(ox + G.cx + 0.5, oy + G.cy + 0.5); dctx.lineTo(ox + p[0] + 0.5, oy + p[1] + 0.5); dctx.stroke();
+    };
+    const mph = Math.abs(g.car.speed) * 2.237;
+    needle(spec.spd, mph / 2.4, '#f2f2f2');
+    needle(spec.rev, g.car.rpm / 128, '#f2f2f2');
+  }
+  const hud = {
+    msg: t => { $('msg').textContent = t; },
+    flash: t => { const f = $('flash'); f.textContent = t; f.hidden = false; clearTimeout(flashTimer); flashTimer = setTimeout(() => f.hidden = true, 2500); },
+    update(g) {
+      const c = g.car;
+      $('spd').firstChild.textContent = Math.round(Math.abs(c.speed) * 3.6);
+      $('gear').textContent = c.gear === -1 ? 'R' : c.gear;
+      $('rev').style.width = Math.min(100, c.rpm / g.carData.spec.maxRpm * 100) + '%';
+      if (g.mode !== 'replay') $('timer').firstChild.textContent = StuntsGame.fmt(g.time + g.penalty);
+      const inCar = g.view === 'cockpit';
+      dash.hidden = !inCar; document.body.classList.toggle('cockpit', inCar);
+      if (inCar) drawDash(g);
+    },
+    replay(t, total) { $('timer').firstChild.textContent = 'REPLAY ' + StuntsGame.fmt(t); $('best').textContent = 'P pause · Enter race again'; },
+  };
+  try { const b = parseFloat(localStorage.getItem('restunts-best')); if (b) $('best').textContent = 'best ' + StuntsGame.fmt(b); } catch (e) { /* storage unavailable */ }
+
+  const assets = await new StuntsAssets().load();
+  const world = new StuntsWorld(assets, renderer);
+  const audio = new StuntsAudio();
+  const game = new StuntsGame.Game({ assets, world, renderer, camera, hud, audio });
+  $('sound').addEventListener('click', e => { audio.setMuted(!audio.muted); e.target.textContent = audio.muted ? 'Sound off' : 'Sound on'; e.target.setAttribute('aria-pressed', !audio.muted); e.target.blur(); });
+  window.__game = game;
+  const CARS = ['COUN', 'ANSX', 'AUDI', 'FGTO', 'JAGU', 'LANC', 'LM02', 'P962', 'PC04', 'PMIN', 'VETT'];
+  for (const id of CARS) {
+    let name = id;
+    try { name = StuntsData.cstr((await assets.loadCar(id)).info.gnam).trim() || id; } catch (e) { /* keep the id */ }
+    $('carSel').add(new Option(name, id));
+  }
+  $('carSel').addEventListener('change', async e => { e.target.blur(); await game.load('DEFAULT.TRK', e.target.value); });
+  $('classic').addEventListener('click', e => { const on = e.target.getAttribute('aria-pressed') !== 'true'; e.target.setAttribute('aria-pressed', on); world.setClassic(on); e.target.blur(); });
+  await game.load('DEFAULT.TRK', 'COUN');
+
+  let last = performance.now();
+  (function loop(now) {
+    requestAnimationFrame(loop);
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    game.update(dt);
+    game.present(camera, dt);
+    world.followCamera(camera);
+    audio.update(game.car);
+    const p = game.car.pos;
+    world.sun.position.set(p[0] - 60, p[1] + 140, p[2] + 50); world.sun.target.position.set(p[0], p[1], p[2]); world.sun.target.updateMatrixWorld();
+    renderer.render(world.scene, camera);
+  })(last);
+})().catch(e => { document.getElementById('msg').textContent = e.message; console.error(e); });
+</script>

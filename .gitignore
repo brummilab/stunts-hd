@@ -1,0 +1,21 @@
+# nothing from the game: bring your own copy
+/stunts/gen/
+/stunts/map.json
+/stunts/tracks/
+/stunts/media/
+/vendor/restunts/
+*.img
+*.zip
+*.EXE
+*.RES
+*.P3S
+*.PVS
+*.PES
+*.TRK
+*.FNT
+/dist/
+/functions/
+.refhit-url
+node_modules/
+package-lock.json
+.DS_Store

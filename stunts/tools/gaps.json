@@ -1,0 +1,4 @@
+[
+  { "race": true },
+  { "eval": "(async () => { const g = await import('/stunts/tools/gaps.mjs?' + Date.now()); const t = performance.now(); const r = g.scan(view); return JSON.stringify({ ms: Math.round(performance.now() - t), r: r.filter(s => s.leaks) }); })()", "save": "gaps.jsonl" }
+]

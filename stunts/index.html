@@ -1,0 +1,73 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stunts HD (4D Sports Driving)</title>
+<meta name="description" content="Stunts HD: the 1990 Stunts (4D Sports Driving) recompiled for your browser: HD 3D, widescreen, smooth at any refresh rate, the original's own physics, cars and opponents. Bring your own copy.">
+<meta property="og:title" content="Stunts HD (4D Sports Driving), recompiled for your browser">
+<meta property="og:description" content="The 1990 original in HD widescreen: the game's own code and physics, translated in your browser from your own copy.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://stunts-recomp.pages.dev/stunts/">
+<meta property="og:image" content="https://stunts-recomp.pages.dev/stunts/media/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="media/favicon.png">
+<link rel="apple-touch-icon" href="media/apple-touch-icon.png">
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas[hidden] { display: none !important; }
+  body { cursor: none; }   /* (the game draws its own pointer) */
+  canvas { position: absolute; display: block; left: 50%; top: 50%; transform: translate(-50%, -50%); image-rendering: pixelated; }
+  #terrain { position: fixed; right: 16px; top: 16px; cursor: pointer; font: bold 15px ui-monospace, Menlo, monospace; color: #000; background: #b4b4b4; border: 3px outset #e0e0e0; padding: 8px 14px; }
+  #terrain:active { border-style: inset; }
+  #err { position: fixed; left: 12px; bottom: 12px; color: #f66; font: 12px ui-monospace, monospace; white-space: pre-wrap; }
+</style>
+<canvas id="bg" width="320" height="200"></canvas>
+<canvas id="gl"></canvas>
+<canvas id="sides" hidden></canvas>
+<canvas id="screen" width="320" height="200"></canvas>
+<canvas id="hud" hidden style="image-rendering: auto; pointer-events: none"></canvas>
+<div id="err" hidden></div>
+<div id="tod" hidden style="position:fixed;inset:0;pointer-events:none;z-index:1"></div>
+<button id="terrain" hidden title="The terrain pieces (water, hills, slopes) and back: the game's Shift+F1">Terrain / Track pieces</button>
+<script>try{var r=document.referrer||"";if(!r||new URL(r).hostname!==location.hostname)fetch("/_refhit?r="+encodeURIComponent(r),{cache:"no-store",keepalive:true}).catch(function(){})}catch(e){}</script>
+<script>self.stuntsBuild = '__BUILD__';   // (the site's version, stamped by tools/site.py: each script's address carries it, so a browser's cache never mixes two versions)</script>
+<script src="../vendor/three/three.min.js"></script>
+<script src="hires-capture.js?v=__BUILD__"></script>
+<script src="hires-view.js?v=__BUILD__"></script>
+<script src="hires-grass.js?v=__BUILD__"></script>
+<script src="hires-ao.js?v=__BUILD__"></script>
+<script src="x86dec.js?v=__BUILD__"></script>
+<script src="exefile.js?v=__BUILD__"></script>
+<script src="translate.js?v=__BUILD__"></script>
+<script src="boot.js?v=__BUILD__"></script>
+<script src="setup.js?v=__BUILD__"></script>
+<script>
+'use strict';
+// Starting: your copy of the game (the welcome screen, or the one kept in this browser), its code made from it here
+// (boot.js), then the page (main.js) and its extras (qol.js). ?setup shows the welcome screen again.
+(async () => {
+  const load = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('could not load ' + src)); document.body.appendChild(s); });
+  const again = /[?&]setup\b/.test(location.search), mine = again ? null : await StuntsSetup.load();
+  let files = null, code = null, note = '';
+  if (mine && StuntsSetup.complete(mine)) try { code = await StuntsBoot.code(mine); files = mine; } catch (e) { note = `<span class="bad">${e.message}</span>`; }
+  else if (mine) note = '<span class="bad">The game files kept in this browser are incomplete: please load your stunts.zip again.</span>';
+  // (a copy of the game next to the page, for development; a host answering every path with its page is not one)
+  if (!code && !again && !mine) try {
+    const r = await fetch('../vendor/restunts/stunts/game.exe');
+    if (r.ok && !/html/.test(r.headers.get('content-type') || '')) code = await StuntsBoot.code(null, new Uint8Array(await r.arrayBuffer()));
+  } catch (_) {}
+  // the welcome screen, every time but with the developer copy: with a copy kept in this browser its big button reads
+  // Start game (quitting the game reloads the page, which comes back here)
+  // (back after a new version of the site was put up as you pressed Start (main.js): straight into the game, once)
+  let restart = false; try { restart = sessionStorage.getItem('stunts-restart-go') === '1'; sessionStorage.removeItem('stunts-restart-go'); } catch (_) {}
+  if ((!code || files) && !(restart && code && files)) {
+    files = await new Promise(res => StuntsSetup.show(res, note, StuntsBoot.code, files));
+    code = await StuntsBoot.code(files);
+    if (again) history.replaceState(null, '', location.pathname + location.search.replace(/[?&]setup\b/, '').replace(/^&/, '?') + location.hash);
+  }
+  window.stuntsBoot = { files, code };
+  try { await load(code.url); await load('main.js?v=' + self.stuntsBuild); if (!self.stuntsReloading) await load('qol.js?v=' + self.stuntsBuild); }
+  catch (e) { const el = document.getElementById('err'); el.hidden = false; el.textContent = e.message; }
+})();
+</script>

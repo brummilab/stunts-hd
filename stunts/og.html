@@ -1,0 +1,38 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Stunts (emulated)</title>
+<style>
+  html, body { margin: 0; background: #000; color: #ccc; font: 12px ui-monospace, monospace; }
+  #screen canvas { image-rendering: pixelated; width: 960px; height: 600px; display: block; }
+  #screen div { white-space: pre; font: 14px monospace; line-height: 14px; }
+</style>
+<div id="screen"><div></div><canvas></canvas></div>
+<div id="log"></div>
+<script src="../vendor/v86/package/build/libv86.js"></script>
+<script>
+const emulator = new V86({
+  wasm_path: '../vendor/v86/package/build/v86.wasm',
+  memory_size: 32 * 1024 * 1024,
+  vga_memory_size: 2 * 1024 * 1024,
+  screen_container: document.getElementById('screen'),
+  bios: { url: '../vendor/v86/seabios.bin' },
+  vga_bios: { url: '../vendor/v86/vgabios.bin' },
+  fda: { url: '../vendor/v86/freedos722.img' },
+  hda: { url: 'gen/stunts-hd.img', async: false },
+  boot_order: 0x321,
+  autostart: true,
+});
+window.emulator = emulator;
+// read the text-mode screen to see when DOS is at its prompt
+function screenText() {
+  const m = emulator.read_memory(0xB8000, 80 * 25 * 2); let s = '';
+  for (let i = 0; i < m.length; i += 2) s += String.fromCharCode(m[i]) + ((i / 2 + 1) % 80 ? '' : '\n');
+  return s;
+}
+window.screenText = screenText;
+let launched = false;
+const t = setInterval(() => {
+  if (launched) return;
+  try { if (/A:\\>\s*$/m.test(screenText().trimEnd())) { launched = true; emulator.keyboard_send_text('C:\\RUN\n'); clearInterval(t); } } catch (e) {}
+}, 500);
+</script>
