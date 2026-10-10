@@ -19,7 +19,7 @@ const args = process.argv.slice(app.isPackaged ? 1 : 2);
 const selftest = args.includes('--selftest') ? path.resolve(args[args.indexOf('--selftest') + 1] || '') : null;
 
 // the game's files from a folder (any depth, as a zip of one would have them) or a zip, for the welcome screen to read
-const GAME_FILE = /\.(RES|P3S|PVS|PES|PRE|FNT|TRK|RPL|DRV|VCE|SFX|KMS|PLB|TD|HIG|EXE|CMN|HDR|DIF|COD|ZIP)$/i;
+const GAME_FILE = /\.(RES|P3S|3SH|PVS|VSH|XVS|PES|ESH|PRE|FNT|TRK|RPL|DRV|VCE|SFX|KMS|PLB|TD|HIG|EXE|CMN|HDR|DIF|COD|ZIP)$/i;
 function readGame(p) {
   const out = [];
   const walk = (d, depth) => {

@@ -13,7 +13,7 @@
   const PROGRAM = ['EGA.CMN', 'MCGA.HDR', 'MCGA.DIF', 'MCGA.COD'];
   const COD_11 = 48899;   // (Stunts 1.1's MCGA.COD, dated 13 March 1991)
   const missing = files => NEED.filter(n => !files[n]).concat(files['GAME.EXE'] || PROGRAM.every(n => files[n]) ? [] : PROGRAM.filter(n => !files[n]));
-  const KEEP = /\.(RES|P3S|PVS|PES|PRE|FNT|TRK|RPL|DRV|VCE|SFX|KMS|PLB|TD|HIG)$|^GAME\.EXE$|^EGA\.CMN$|^MCGA\.(HDR|DIF|COD)$/;   // (what the game reads, and its program; the rest is left out)
+  const KEEP = /\.(RES|P3S|3SH|PVS|VSH|XVS|PES|ESH|PRE|FNT|TRK|RPL|DRV|VCE|SFX|KMS|PLB|TD|HIG)$|^GAME\.EXE$|^EGA\.CMN$|^MCGA\.(HDR|DIF|COD)$/;   // (what the game reads, and its program; the rest is left out. 3SH, VSH, XVS, ESH: the unpacked forms the game also takes, as added cars often come: without them it asked for the disk again and again)
 
   // ---- stored files (IndexedDB: survives reloads, stays on this computer) ----
   const db = () => new Promise((res, rej) => { const r = indexedDB.open('stunts-recomp', 1); r.onupgradeneeded = () => r.result.createObjectStore('files'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });

@@ -57,6 +57,7 @@
       I[base + 5] = L; I[base + 6] = R; I[base + 7] = T; I[base + 8] = Bt;
       for (let y = Math.max(0, T); y < Math.min(200, Bt); y++) {
         const a = rowAddr(y);
+        if (a < 0xA0000 || a >= 0xB0000) keyed.add(a + Math.max(0, L) + (Math.min(320, R) - Math.max(0, L)) * 0x100000);
         for (let x = Math.max(0, L); x < Math.min(320, R); x++) {
           const v = pc.mem[a + x], i = y * 320 + x;
           // (into both buffers: a pixel made see-through now may be left alone next frame, when the other buffer
@@ -76,6 +77,19 @@
       }
     }
     const s16 = v => (v << 16) >> 16;
+    // the rows of an off-screen window left see-through (the key colour where the original would have drawn): made black
+    // again when the window is freed. Its memory is the game's again, and what it loads there next may read past its own
+    // end into what was left: after the intro, the menu music's track scan ran on through a sea of the key colour, never
+    // meeting the end it finds in the original's mostly black picture, and the game hung (a key pressed in the intro)
+    const keyed = new Set();
+    for (const name of ['sprite_free_wnd']) {
+      const f = P[name];
+      if (f) P[name] = function (r, m, PP, e) {
+        for (const k of keyed) { const a = k % 0x100000, w = Math.floor(k / 0x100000); for (let x = 0; x < w; x++) if (pc.mem[a + x] === KEY) pc.mem[a + x] = 0; }
+        keyed.clear();
+        return f(r, m, PP, e);
+      };
+    }
 
     // OG mode in a race: which of the screen's pixels are the original's 3D view, for the page to draw the ghost car
     // on (bg + 256000: 1 there), not on the dashboard or anything else drawn over the view. Once the original has
