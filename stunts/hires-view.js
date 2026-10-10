@@ -293,14 +293,14 @@ void main() {
         im.userData = gr; if (!gr.layer || geo.userData.flat) im.layers.enable(1);
         // (its shadow is its own, from the shape drawn: the game's low-detail shapes for the distance, cast instead to save
         // triangles, left out whole parts (a windmill's sails and most of its body, a barn's roof, ramps entirely))
-        const bb = geo.boundingBox, slope = this.isTerrain(gr.hi) && bb.max.y - bb.min.y > 1;
+        const bb = geo.boundingBox, slope = (this.isTerrain(gr.hi) || this.isHillRoad(gr.hi)) && bb.max.y - bb.min.y > 1;
         gr.list.forEach((o, j) => {
           M.makeTranslation(W[o + 3], W[o + 4], -W[o + 5]).multiply(R.makeRotationY(-W[o + 6] * Math.PI * 2 / 1024));
           // pieces overlap their neighbours a little: no cracks between tiles, as where a ramp meets the flat road
           // (the same colour meeting, so the overlap itself does not show)
           // (track pieces too: road meets road at their edges, and a hairline of grass showed between them)
           const nl = noLap.get((o - H_.WHDR) / H_.WENT);
-          if (slope) {}   // (a hill's slopes: their edges meet their neighbours' exactly; grown, a slope's edge stands off the next one's, sky showing between)
+          if (slope) {}   // (a hill's slopes (and a road up one): their edges meet their neighbours' exactly; grown, a slope's edge stands off the next one's, sky showing between)
           else if (!nl) { const dk = geo.userData.deck; M.multiply(new T.Matrix4().makeScale(dk ? dk[0] : 1.006, 1, geo.userData.roofed || dk && dk[1] === 1 ? 1 : 1.006)); }   // (a tunnel's see-through roof not along its length: two layers of it at each joint showed as a dark, flickering outline)
           else {   // (a crest on one side or both: that edge kept exactly on the boundary, the overlap all on the other side)
             const c = [W[o + 3], -W[o + 5]], sc = [1.006, 1.006], sh = [0, 0];
@@ -974,7 +974,7 @@ void main() {
           let hit = null, bd = 64;
           for (const c of this.wkey.get(o.ptr) || []) { const d = (c.x - o.wp[0]) ** 2 + (c.y - o.wp[1]) ** 2 + (c.z - o.wp[2]) ** 2; if (d < bd) { bd = d; hit = c; } }
           if (hit && hit.lo) continue;
-          if (hit && this.isTerrain(o.ptr)) continue;   // (the land, hills and slopes: always the static one; the captured one's points, worked out here, meet its static neighbours' a hair off, and the sky showed between)
+          if (hit && (this.isTerrain(o.ptr) || this.isHillRoad(o.ptr))) continue;   // (the land, hills and slopes, and roads up them: always the static one; the captured one's points, worked out here, meet its static neighbours' a hair off, and the sky showed between)
           if (hit && hit.im.userData.sailQ != null) continue;   // (a windmill: its static instance turns its sails smoothly, the original's own drawing would step them)
           if (hit) {
             hit.im.setMatrixAt(hit.j, zero); hit.im.instanceMatrix.needsUpdate = true; this.hidden.push(hit);
@@ -1976,6 +1976,10 @@ void main() {
       if (!this._terrain) { this._terrain = new Set(); for (let t = 1; t < 19; t++) for (const k of [4, 6]) this._terrain.add(this.rw(this.S.sceneshapes2 + t * 14 + k)); }
       return this._terrain.has(ptr);
     }
+    isHillRoad(ptr) {   // (trkObjectList 0xB6..0xC5: the pieces a road on a slope becomes, seg004 subst_hillroad_track)
+      if (!this._hillRoad) { this._hillRoad = new Set(); for (let e = 0xB6; e <= 0xC5; e++) for (const k of [4, 6]) this._hillRoad.add(this.rw(this.S.trkObjectList + e * 14 + k)); }
+      return this._hillRoad.has(ptr);
+    }
     isScenery(ptr) {
       if (!this._scenery) { this._scenery = new Set(); for (let e = 0x97; e <= 0xB5; e++) for (const k of [4, 6]) this._scenery.add(this.rw(this.S.trkObjectList + e * 14 + k)); }
       return this._scenery.has(ptr);
@@ -2063,6 +2067,8 @@ void main() {
       // drawn, and the sky showed through (the barn's upper roof from below, past the gable it overhangs; through that
       // gap, inside the far gable)
       if (!wheels && this.isTerrain(ptr)) for (const p of prims) p.slope = 1;
+      // (a road up a hill (the hill-road pieces): its grass and road shaded as the hill around it, not its upright barriers)
+      else if (!wheels && this.isHillRoad(ptr)) for (const p of prims) if (p.plane && Math.abs(p.plane.n[1]) > 0.8) p.slope = 1;
       if (!wheels && this.isScenery(ptr)) { const show = prims.filter(p => p.one && p.f3 && backShows(prims, p)); for (const p of show) p.one = 0; }
       let y0 = 1e9, y1 = -1e9;
       for (const v of V) { y0 = Math.min(y0, v[1]); y1 = Math.max(y1, v[1]); }

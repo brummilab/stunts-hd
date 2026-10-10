@@ -48,3 +48,7 @@ this project. three.js (MIT), Press Start 2P (OFL).
 ## Licence
 
 MIT for this project's own code: see LICENSE.
+
+## Support
+
+If you enjoy it, you can buy me a coffee: https://buymeacoffee.com/mrfinster
