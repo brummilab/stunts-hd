@@ -71,6 +71,7 @@
     opp: '<svg class="sg" viewBox="0 0 20 20"><path d="M6.5 1.5h7l5 5v7l-5 5h-7l-5-5v-7z" fill="#d81818"/></svg>',
     opt: '<svg class="sg" viewBox="0 0 20 20"><rect x="2" y="2" width="16" height="16" fill="#2f8f3a"/></svg>',
     sup: '<svg class="sg" viewBox="0 0 20 20"><path d="M10 1l9 9-9 9-9-9z" fill="#e8c21a"/></svg>',
+    src: '<svg class="sg" viewBox="0 0 20 20"><rect x="1.5" y="1.5" width="17" height="17" fill="#2b2b2b"/><path d="M8 6.5 4.5 10 8 13.5M12 6.5l3.5 3.5-3.5 3.5" fill="none" stroke="#fff" stroke-width="1.8"/></svg>',   // (a dark sign with code brackets: the source on GitHub)
     play: '<svg class="sg" viewBox="0 0 20 20"><rect x="1.5" y="1.5" width="17" height="17" fill="#1d3fd8"/><path d="M7.5 5.5l6.5 4.5-6.5 4.5z" fill="#fff"/></svg>',   // (an information sign: the trailer)
     log: '<svg class="sg" viewBox="0 0 20 20"><rect x="2" y="3" width="16" height="14" fill="#ececec"/><path d="M5 7.5h10M5 12.5h7" stroke="#333" stroke-width="2"/></svg>',   // (a notice board: the changelog)
     all: '<svg class="sg" viewBox="0 0 20 20"><rect x="2" y="2" width="7" height="7" fill="#1d3fd8"/><rect x="11" y="2" width="7" height="7" fill="#f59a1c"/><rect x="2" y="11" width="7" height="7" fill="#2f8f3a"/><rect x="11" y="11" width="7" height="7" fill="#d81818"/></svg>'
@@ -325,6 +326,7 @@
             <li>First release.</li>
           </ul>
         </div></span>
+      <span class="info"><a class="lnk" href="https://github.com/mr-finster/stunts-hd" target="_blank" rel="noopener">${SIGN.src}GitHub</a></span>
       <span class="info"><a class="lnk" id="su-support" href="https://buymeacoffee.com/mrfinster" target="_blank" rel="noopener">${SIGN.sup}Support me</a></span>
     </nav>
 
