@@ -8,7 +8,7 @@ const ROOT = path.join(__dirname, '..');
 require(path.join(ROOT, 'cpu.js')); require(process.env.CODE || path.join(ROOT, 'gen/code.js')); require(path.join(ROOT, 'drv86.js')); require(path.join(ROOT, 'dos.js')); require(path.join(ROOT, 'hires-capture.js'));
 const OUT = process.argv[2] || '/tmp';
 const script = process.argv[3] ? JSON.parse(fs.readFileSync(process.argv[3], 'utf8')) : [];
-const DATA = path.join(ROOT, '../vendor/restunts/stunts');
+const DATA = process.env.DATA || path.join(ROOT, '../vendor/restunts/stunts');   // (DATA: another copy of the game's files)
 const files = {};
 for (const f of fs.readdirSync(DATA)) files[f.toUpperCase()] = new Uint8Array(fs.readFileSync(path.join(DATA, f)));
 

@@ -6,14 +6,17 @@
   const { Machine } = root.StuntsCPU;
   const RET = 0x0001, RETSEG = 0xC5C5;      // return-address marker pushed by calls
   const BIOS = 0xE000, STUB = 0xFF00;       // host interrupt stubs live at E000:FF00+n (not the code segment)
-  // Conventional memory handed out by DOS 48h: as much as GAME.EXE gets on a PC with 600 KB free (program
-  // from 0A00h; PSP, code, data and stack take 384Dh paragraphs, from its MZ header). Here only its data
+  // Conventional memory handed out by DOS 48h: as much as GAME.EXE gets on a PC (program
+  // from 0A00h with 600 KB free; PSP, code, data and stack take 384Dh paragraphs, from its MZ header). Here only its data
   // segment is in memory (1000:0000-FFFF), so the heap could start at 2000h, but the amount matters: the
   // game's memory manager keeps freed files as a cache, and with ~140 KB more than on a PC the title music
   // survives a race in it and comes back with its drum instruments still pointing into a since-freed voice
   // file (no drums after a race). With a PC's memory the race evicts it, and the music is loaded and set up
   // afresh, as on the original.
-  const HEAP0 = 0x0A00 + 0x384D, HEAP1 = 0xA000;
+  // (DOSBox's amount, about 634 KB free, program from 053Dh: what players run the game in today, and what add-on cars
+  // are made for: the DAF Siluro's unpacked dashboard picture needs some 7 KB more than 600 KB free leaves, and the
+  // game stopped with OUT OF MEMORY as the race loaded it. Still well short of the 140 KB that kept the music cached.)
+  const HEAP0 = 0x053D + 0x384D, HEAP1 = 0xA000;
 
   class StuntsPC extends Machine {
     constructor(code, opts = {}) {

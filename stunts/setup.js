@@ -331,11 +331,15 @@
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.log}Changelog</button>
         <div class="pop">
           <h2>Changelog</h2>
-          <p><b>v1.2</b> &middot; Oct 11 2026</p>
+          <p><b>v1.3</b> &middot; Oct 11 2026</p>
           <ul>
+            <li>Big add-on cars (like the DAF Siluro) no longer stop the game when the race loads: it now has as much memory as in DOSBox.</li>
+            <li>If the game ever does stop, the welcome page says why.</li>
+          </ul>
+          <details><summary>v1.2 &middot; Oct 11 2026</summary><ul>
             <li>Pressing a key during the intro no longer freezes the game on a black screen.</li>
             <li>Extra cars in your copy work: no more endless "Please check disk" when you pick one.</li>
-          </ul>
+          </ul></details>
           <details><summary>v1.1 &middot; Oct 10 2026</summary><ul>
             <li>Hills are shaded by the sun, roads up them too, and the cracks between hill pieces are gone.</li>
             <li>No more sky showing through gaps under roofs (the barn and friends).</li>
@@ -369,6 +373,9 @@
       .then(b => { if (!tv.isConnected) return; tv.src = tvUrl = URL.createObjectURL(b); tv.play().catch(() => {}); }).catch(() => tv.remove());
     const say = h => { status.innerHTML = h; try { status.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (_) {} };   // (the answer in view: on a short window it fell below the fold)
     if (note) say(note);
+    // the game stopped itself last time (see worker.js): why, instead of just the welcome page again
+    { let why = null; try { why = sessionStorage.getItem('stunts-stopped'); sessionStorage.removeItem('stunts-stopped'); } catch (_) {}
+      if (why) say(`<span class="bad">The game stopped: ${why.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c])}.</span> An add-on car or track in your copy may be too big for it: try another.`); }
     let latest = 0;
     // a good set in (from a zip just now, or kept from last time): the big button starts the game; the welcome screen
     // stays up till then (its links, Support me), and a small link loads a different copy

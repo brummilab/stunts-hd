@@ -30,6 +30,17 @@ onmessage = async e => {
     onSave: (name, data) => postMessage({ type: 'save', name, data: data.slice() }),
     onDelete: name => postMessage({ type: 'delete', name }),
   });
+  // the game stopping itself (its fatal_error: out of memory, a file it can't do without): the page is told why
+  // before the game exits, so the welcome page can say so (an add-on car too big for the game's memory did this)
+  { const f = StuntsCode.P.fatal_error;
+    if (f) StuntsCode.P.fatal_error = function (r, m, P, e) {
+      try {
+        const fmt = m.cstr(r.ds, m.rw(r.ss, r.sp + 4)); let n = 0;
+        const text = fmt.replace(/%[sxd]/g, c => { const w = m.rw(r.ss, r.sp + 6 + 2 * n++); return c === '%s' ? m.cstr(r.ds, w) : c === '%x' ? w.toString(16) : String(w); }).replace(/\s+/g, ' ').trim();
+        postMessage({ type: 'fatal', text });
+      } catch (_) {}
+      return f(r, m, P, e);
+    }; }
   // key events from the page: ring of (scancode | down << 16 | ascii << 17)
   let lastDown = 0;
   pc.hook = () => {

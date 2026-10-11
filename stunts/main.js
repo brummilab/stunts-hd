@@ -100,6 +100,7 @@ worker.onmessage = e => {
   if (m.type === 'save') { saved[m.name] = m.data; let s = ''; for (const b of m.data) s += String.fromCharCode(b); try { localStorage.setItem('stunts:' + m.name, btoa(s)); } catch (_) { if (window.qolSay) qolSay('Browser storage full: ' + m.name + ' not kept'); } }
   if (m.type === 'delete') { try { localStorage.removeItem('stunts:' + m.name); } catch (_) {} delete saved[m.name]; }
   if (m.type === 'error') { const el = document.getElementById('err'); el.hidden = false; el.textContent = m.message; }
+  if (m.type === 'fatal') { try { sessionStorage.setItem('stunts-stopped', m.text); } catch (_) {} }   // (said on the welcome page after the reload)
   if (m.type === 'exit') location.reload();
   if (m.type === 'editor') document.getElementById('terrain').hidden = !m.on;
   if (m.type === 'files') window.stockNames = new Set(m.names);
