@@ -4,6 +4,7 @@
 // and here can also open your Stunts folder (or zip) with the system's own dialog.
 //   npm start                   run it (dist/ built first: python3 stunts/tools/site.py)
 //   npm run selftest -- <dir>   open the game from <dir> without the dialog, start a race, save a screenshot, quit
+//   npm run dist                the downloads for macOS, Windows and Linux into out/ (dist/ built first; map.json left out)
 'use strict';
 const { app, BrowserWindow, protocol, ipcMain, dialog, shell } = require('electron');
 const path = require('path'), fs = require('fs');
@@ -43,12 +44,29 @@ ipcMain.handle('pick-game', async e => {
   return r.canceled || !r.filePaths.length ? null : readGame(r.filePaths[0]);
 });
 
+// map.json (the names and places the game's code is translated by, from the Restunts disassembly) isn't in the app's
+// download: the first time, it comes from the site, as it does for the website, and is kept beside the app's settings
+const MAP_URL = 'https://stunts-recomp.pages.dev/stunts/map.json';
+async function mapJson() {
+  const keep = path.join(app.getPath('userData'), 'map-' + app.getVersion() + '.json');
+  if (fs.existsSync(keep)) return fs.readFileSync(keep);
+  const r = await fetch(MAP_URL);
+  if (!r.ok) throw new Error('map.json: ' + r.status);
+  const b = Buffer.from(await r.arrayBuffer());
+  try { fs.writeFileSync(keep, b); } catch (_) {}
+  return b;
+}
+
 function serve() {
   protocol.handle('app', async req => {
     const u = new URL(req.url);
     let p = decodeURIComponent(u.pathname);
     if (p.endsWith('/')) p += 'index.html';
     const f = path.normalize(path.join(SITE, p));
+    if (p === '/stunts/map.json' && !fs.existsSync(f)) {
+      try { return new Response(await mapJson(), { headers: Object.assign({ 'Content-Type': 'application/json' }, ISOLATED) }); }
+      catch (e) { return new Response('map.json could not be fetched: connect to the internet once, then start again', { status: 503 }); }
+    }
     if (!f.startsWith(SITE + path.sep) || !fs.existsSync(f) || !fs.statSync(f).isFile()) return new Response('Not found', { status: 404 });
     return new Response(fs.readFileSync(f), { headers: Object.assign({ 'Content-Type': TYPES[path.extname(f).toLowerCase()] || 'application/octet-stream' }, ISOLATED) });
   });
@@ -90,6 +108,14 @@ async function runSelftest(win) {
     const racing = await js('!!(view.cur && view.cur.cam)');
     log('racing', racing);
     await js('window.__kd("ArrowUp", 1), 1'); await sleep(3000);
+    // F: fullscreen, as on the website (a real key press: the page's fullscreen request needs one)
+    win.show(); win.focus();
+    for (const type of ['keyDown', 'char', 'keyUp']) win.webContents.sendInputEvent({ type, keyCode: 'F' });
+    await sleep(1500);
+    log('fullscreen', await js('!!document.fullscreenElement'), win.isFullScreen());
+    for (const type of ['keyDown', 'char', 'keyUp']) win.webContents.sendInputEvent({ type, keyCode: 'F' });
+    await sleep(1500);
+    log('fullscreen after a second F', await js('!!document.fullscreenElement'), win.isFullScreen());
     const img = await win.webContents.capturePage();
     const out = path.join(app.getPath('temp'), 'stunts-selftest.png'); fs.writeFileSync(out, img.toPNG()); log('screenshot', out);
     app.exit(racing ? 0 : 1);

@@ -1,15 +1,66 @@
 {
   "name": "stunts-hd",
   "productName": "Stunts HD",
-  "version": "1.0.0",
+  "version": "1.4.0",
   "private": true,
   "description": "Stunts (1990) in HD: the website's game, as a desktop app",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "selftest": "electron . --selftest"
+    "selftest": "electron . --selftest",
+    "dist": "electron-builder --mac --x64 --arm64 --win --x64 --linux --x64"
   },
   "devDependencies": {
-    "electron": "33.2.1"
+    "electron": "33.2.1",
+    "electron-builder": "^26.16.1"
+  },
+  "author": "mr-finster",
+  "homepage": "https://stunts-recomp.pages.dev/",
+  "build": {
+    "appId": "dev.mrfinster.stuntshd",
+    "productName": "Stunts HD",
+    "copyright": "mr-finster",
+    "artifactName": "Stunts-HD-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "out"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../dist",
+        "to": "site",
+        "filter": [
+          "**/*",
+          "!stunts/map.json",
+          "!_headers",
+          "!_redirects",
+          "!404.html"
+        ]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.games",
+      "identity": null,
+      "target": [
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "zip"
+      ],
+      "signAndEditExecutable": false
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Game"
+    },
+    "publish": null
   }
 }

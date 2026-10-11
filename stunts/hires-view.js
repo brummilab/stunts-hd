@@ -2057,6 +2057,9 @@ void main() {
           if (on) b = on;
           rank = b.rank + 1;
           if (on) for (let k = 0; k < tri.length; k++) { const v = tri[k], e = dot(on.plane.n, v) - on.plane.d; tri[k] = [v[0] - e * on.plane.n[0], v[1] - e * on.plane.n[1], v[2] - e * on.plane.n[2]]; }
+          // (a line's widening to its least width on screen kept in the plane too: across it, half the line stood out of the
+          // face, past its edge: the Ferrari GTO's roof trim showed as a black sliver over the roof in the car select)
+          if (on) for (let k = 0; k < lofs.length; k++) { const v = lofs[k], e = dot(on.plane.n, v); lofs[k] = [v[0] - e * on.plane.n[0], v[1] - e * on.plane.n[1], v[2] - e * on.plane.n[2]]; }
         } else baseIdx = prims.length;
         if (poly && P.length >= 3 && !P.some(p => !p)) plane = planeOf(P);
         // (a wheel in the original's three colours: its material for the tread, the next one for the tyre's
