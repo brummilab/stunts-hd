@@ -6,7 +6,7 @@
 //   npm run selftest -- <dir>   open the game from <dir> without the dialog, start a race, save a screenshot, quit
 //   npm run dist                the downloads for macOS, Windows and Linux into out/ (dist/ built first; map.json left out)
 'use strict';
-const { app, BrowserWindow, protocol, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, protocol, ipcMain, dialog, shell, Menu } = require('electron');
 const path = require('path'), fs = require('fs');
 
 const SITE = app.isPackaged ? path.join(process.resourcesPath, 'site') : path.join(__dirname, '..', 'dist');
@@ -72,15 +72,55 @@ function serve() {
   });
 }
 
+// the window where you left it: its size, place and whether it was fullscreen, kept beside the app's settings
+const BOUNDS = () => path.join(app.getPath('userData'), 'window.json');
+function lastBounds() { try { return JSON.parse(fs.readFileSync(BOUNDS(), 'utf8')); } catch (_) { return {}; } }
+function keepBounds(win) {
+  let t = null;
+  const save = () => { clearTimeout(t); t = setTimeout(() => { try { fs.writeFileSync(BOUNDS(), JSON.stringify(Object.assign(win.isFullScreen() ? lastBounds() : win.getNormalBounds(), { full: win.isFullScreen() }))); } catch (_) {} }, 400); };
+  for (const ev of ['resize', 'move', 'enter-full-screen', 'leave-full-screen']) win.on(ev, save);
+}
+
+// what the page may ask of the app besides your game's files: its version, and the window fullscreen or not
+ipcMain.handle('version', () => app.getVersion());
+ipcMain.handle('fullscreen', (e, on) => { const w = BrowserWindow.fromWebContents(e.sender); if (w) w.setFullScreen(!!on); });
+
+function about(win) {
+  dialog.showMessageBox(win, {
+    type: 'none', title: 'About Stunts HD', message: 'Stunts HD ' + app.getVersion(),
+    detail: 'Stunts / 4D Sports Driving (1990), recompiled and redrawn in HD. Your own copy of the game is needed: none of it is included.\n\n'
+      + 'Open source (MIT): github.com/mr-finster/stunts-hd\nPlay in the browser: stunts-recomp.pages.dev\n\n'
+      + 'Stunts © 1990 Distinctive Software / Broderbund. Not affiliated with or endorsed by them. Built on the Restunts project\'s reverse engineering; three.js (MIT).',
+    buttons: ['OK', 'GitHub', 'Website'], defaultId: 0,
+  }).then(r => { if (r.response === 1) shell.openExternal('https://github.com/mr-finster/stunts-hd'); if (r.response === 2) shell.openExternal('https://stunts-recomp.pages.dev/'); });
+}
+
+// the app's menu: About, the welcome screen again (to change your copy or its options), fullscreen
+function menu(win) {
+  const mac = process.platform === 'darwin';
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    ...(mac ? [{ label: 'Stunts HD', submenu: [{ label: 'About Stunts HD', click: () => about(win) }, { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' }, { type: 'separator' }, { role: 'quit' }] }] : []),
+    { label: 'Game', submenu: [
+      { label: 'Welcome Screen', accelerator: 'CmdOrCtrl+Shift+H', click: () => win.loadURL('app://stunts/stunts/?welcome') },
+      { label: 'Toggle Fullscreen', accelerator: mac ? 'Ctrl+Cmd+F' : 'F11', click: () => win.setFullScreen(!win.isFullScreen()) },
+      ...(mac ? [] : [{ type: 'separator' }, { label: 'About Stunts HD', click: () => about(win) }, { role: 'quit' }]),
+    ] },
+    { role: 'windowMenu' },
+  ]));
+}
+
 function open() {
+  const b = lastBounds();
   const win = new BrowserWindow({
-    width: 1280, height: 800, minWidth: 640, minHeight: 400, backgroundColor: '#04061a', title: 'Stunts HD', show: !selftest,
+    width: b.width || 1280, height: b.height || 800, x: b.x, y: b.y, fullscreen: !!b.full && !selftest,
+    minWidth: 640, minHeight: 400, backgroundColor: '#04061a', title: 'Stunts HD', show: !selftest,
     autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true, backgroundThrottling: false },
   });
   // links out (YouTube, Buy Me a Coffee, the other ports) open in the browser, not in the game's window
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('app://')) { e.preventDefault(); shell.openExternal(url); } });
+  keepBounds(win); menu(win);
   win.loadURL('app://stunts/stunts/');
   if (selftest) runSelftest(win);
 }
@@ -94,12 +134,17 @@ async function runSelftest(win) {
     await new Promise(r => win.webContents.once('did-finish-load', r));
     await sleep(2500);
     log('isolated', await js('self.crossOriginIsolated'), 'host', await js('!!window.stuntsHost'));
-    log('tv', await js('(v => JSON.stringify({ ready: v.readyState, t: +v.currentTime.toFixed(2), paused: v.paused, err: v.error && v.error.code, w: v.videoWidth }))(document.getElementById("su-tv"))'));
+    win.show(); await sleep(800);
+    const shot = async name => { const img = await win.webContents.capturePage(); const f = path.join(app.getPath('temp'), 'stunts-selftest-' + name + '.png'); fs.writeFileSync(f, img.toPNG()); log('screenshot', f); };
+    await shot('welcome');
     if (!await js('!!document.getElementById("su-open")')) return fail('no Open your Stunts folder button');
     await js('document.getElementById("su-open").click()');
-    for (let i = 0; i < 60 && !await js('!!document.querySelector("#su-status .ok")'); i++) await sleep(500);
+    for (let i = 0; i < 60 && !await js('document.getElementById("setup").classList.contains("armed")'); i++) await sleep(500);
     log('status', await js('document.getElementById("su-status").innerText'));
-    if (!await js('!!document.querySelector("#su-status .ok")')) return fail('the game was not taken');
+    await sleep(500); await shot('ready');
+    const about = 'document.querySelector("#setup nav.more .info:last-child > button")';   // the About panel, open for a picture, then closed
+    await js(about + '.click()'); await sleep(1200); await shot('about'); await js(about + '.click()'); await sleep(300);
+    if (!await js('document.getElementById("setup").classList.contains("armed")')) return fail('the game was not taken');
     await js('document.getElementById("su-start").click()');
     for (let i = 0; i < 60 && !await js('typeof view !== "undefined" && typeof mem !== "undefined"'); i++) await sleep(500);
     await js(`window.__kd = (c, d) => dispatchEvent(new KeyboardEvent(d ? 'keydown' : 'keyup', { code: c, key: c })); window.__tap = async c => { __kd(c, 1); await new Promise(r => setTimeout(r, 90)); __kd(c, 0); }; 1`);

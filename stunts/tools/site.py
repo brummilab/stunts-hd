@@ -34,7 +34,6 @@ for f in PAGE:
 # the welcome page's font (Press Start 2P, OFL), and the trailer when there is one (media/: trailer.mp4, poster.jpg),
 # made from the montage, kept out of git (tv.mp4, the old silent loop, is left out)
 shutil.copy(os.path.join(SRC, 'logo.webp'), os.path.join(OUT, 'stunts', 'logo.webp'))   # (the welcome page's title)
-shutil.copytree(os.path.join(SRC, 'fonts'), os.path.join(OUT, 'stunts', 'fonts'))
 if os.path.isdir(os.path.join(SRC, 'media')): shutil.copytree(os.path.join(SRC, 'media'), os.path.join(OUT, 'stunts', 'media'), ignore=lambda d, names: [n for n in names if n not in ('trailer.mp4', 'poster.jpg', 'og.png', 'og.jpg', 'favicon.png', 'apple-touch-icon.png')])   # (only what the page uses: the rest of media/ is the montage's working files)
 else: print('no media/: the welcome page shows the title in place of the trailer')
 shutil.copy(os.path.join(ROOT, 'vendor', 'three', 'three.min.js'), os.path.join(OUT, 'vendor', 'three', 'three.min.js'))

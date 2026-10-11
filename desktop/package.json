@@ -1,7 +1,7 @@
 {
   "name": "stunts-hd",
   "productName": "Stunts HD",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "private": true,
   "description": "Stunts (1990) in HD: the website's game, as a desktop app",
   "main": "main.js",
@@ -20,7 +20,7 @@
     "appId": "dev.mrfinster.stuntshd",
     "productName": "Stunts HD",
     "copyright": "mr-finster",
-    "artifactName": "Stunts-HD-${version}-${os}-${arch}.${ext}",
+    "artifactName": "Stunts-HD-${os}-${arch}.${ext}",
     "directories": {
       "output": "out",
       "buildResources": "build"
@@ -37,6 +37,7 @@
         "filter": [
           "**/*",
           "!stunts/map.json",
+          "!stunts/media/**",
           "!_headers",
           "!_redirects",
           "!404.html"

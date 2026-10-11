@@ -48,7 +48,7 @@ Nothing of the game is in this repository. You need:
 
 The reverse engineering this stands on is the Restunts project's disassembly of Stunts. Stunts / 4D Sports
 Driving was made by Distinctive Software and published by Broderbund / Mindscape; it is not affiliated with
-this project. three.js (MIT), Press Start 2P (OFL).
+this project. three.js (MIT).
 
 ## Licence
 

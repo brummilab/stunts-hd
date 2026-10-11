@@ -2,8 +2,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stunts HD (4D Sports Driving)</title>
-<meta name="description" content="Stunts HD: the 1990 Stunts (4D Sports Driving) recompiled for your browser: HD 3D, widescreen, smooth at any refresh rate, the original's own physics, cars and opponents. Bring your own copy.">
-<meta property="og:title" content="Stunts HD (4D Sports Driving), recompiled for your browser">
+<meta name="description" content="Stunts HD: the 1990 Stunts (4D Sports Driving) recompiled for your browser and desktop: HD 3D, widescreen, smooth at any refresh rate, the original's own physics, cars and opponents. Bring your own copy.">
+<meta property="og:title" content="Stunts HD (4D Sports Driving), recompiled for browser and desktop">
 <meta property="og:description" content="The 1990 original in HD widescreen: the game's own code and physics, translated in your browser from your own copy.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://stunts-recomp.pages.dev/stunts/">
@@ -61,11 +61,18 @@
   // Start game (quitting the game reloads the page, which comes back here)
   // (back after a new version of the site was put up as you pressed Start (main.js): straight into the game, once)
   let restart = false; try { restart = sessionStorage.getItem('stunts-restart-go') === '1'; sessionStorage.removeItem('stunts-restart-go'); } catch (_) {}
+  // (the desktop app: straight into the game when you asked to skip this screen, unless its Welcome Screen menu brought
+  // you here (?welcome); fullscreen at the start when you asked for that too)
+  const host = window.stuntsHost, welcome = /[?&]welcome\b/.test(location.search);
+  let pref = k => { try { return localStorage.getItem('stunts-app-' + k) === '1'; } catch (_) { return false; } };
+  if (host && code && files && !again && !welcome && pref('skip')) restart = true;
   if ((!code || files) && !(restart && code && files)) {
     files = await new Promise(res => StuntsSetup.show(res, note, StuntsBoot.code, files));
     code = await StuntsBoot.code(files);
     if (again) history.replaceState(null, '', location.pathname + location.search.replace(/[?&]setup\b/, '').replace(/^&/, '?') + location.hash);
   }
+  if (host && pref('full')) host.fullscreen(true);
+  if (welcome) history.replaceState(null, '', location.pathname);
   window.stuntsBoot = { files, code };
   try { await load(code.url); await load('main.js?v=' + self.stuntsBuild); if (!self.stuntsReloading) await load('qol.js?v=' + self.stuntsBuild); }
   catch (e) { const el = document.getElementById('err'); el.hidden = false; el.textContent = e.message; }

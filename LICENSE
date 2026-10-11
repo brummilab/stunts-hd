@@ -23,4 +23,4 @@ SOFTWARE.
 ---
 This licence covers the code in this repository written for this project. It does not cover the game:
 Stunts / 4D Sports Driving is not included, and its names belong to their owners. vendor/three is three.js
-(MIT, its own notice at the top of the file); stunts/fonts is Press Start 2P (SIL Open Font License, OFL.txt).
+(MIT, its own notice at the top of the file).

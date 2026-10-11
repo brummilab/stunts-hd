@@ -91,9 +91,8 @@
   const NEAR = '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="160" viewBox="0 0 1200 160"><path d="M0 160 L0 115 241 107 271 121 325 126 400 106 414 122 623 105 661 123 888 110 1137 119 1200 115 L1200 160Z" fill="#0d1631"/></svg>';
   const svg = t => `url("data:image/svg+xml,${encodeURIComponent(t)}")`;
   const CSS = `
-  @font-face { font-family: "Press Start 2P"; src: url(fonts/press-start-2p.woff2) format("woff2"); font-display: swap; }
   #setup { --ground: #070a16; --line: #2a3150; --ink: #f1efe8; --muted: #a9adc2; --dim: #747a96; --yel: #fff721; --yel2: #fffa6b;
-    --px: "Press Start 2P", ui-monospace, Menlo, monospace;
+    --px: system-ui, -apple-system, "Segoe UI", sans-serif;
     position: fixed; inset: 0; z-index: 10; overflow: auto; overflow-x: hidden; cursor: auto; color: var(--ink); background: var(--ground);
     font: 17px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; color-scheme: dark; }
   #setup *, #setup *::before { box-sizing: border-box; }
@@ -118,11 +117,11 @@
   #setup .scr { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: #000; border-radius: 14px; }
   #setup .scr video, #setup .scr img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
   #setup #su-tvbtn { position: absolute; inset: 0; z-index: 2; border: 0; padding: 0; background: transparent; cursor: pointer; }
-  #setup .idle { position: absolute; inset: 0; display: grid; place-items: center; font: 400 clamp(14px, 3vw, 26px) var(--px); color: var(--yel);
+  #setup .idle { position: absolute; inset: 0; display: grid; place-items: center; font: 800 clamp(16px, 3vw, 28px) var(--px); color: var(--yel);
     background: #000; }
   #setup .drophint { position: absolute; inset: 0; display: none; place-items: center; z-index: 2; background: rgba(0,0,0,.78);
     border: clamp(8px, 1.6vw, 14px) solid; border-image: repeating-linear-gradient(-45deg, var(--yel) 0 14px, #111 14px 28px) 14;
-    font: 400 clamp(12px, 2.4vw, 20px)/1.8 var(--px); color: #fff; }
+    font: 700 clamp(15px, 2.6vw, 22px)/1.5 var(--px); color: #fff; }
   #setup.over .drophint { display: grid; }
 
   #setup h1 { position: relative; margin: 0; line-height: 0; animation: su-rise .7s cubic-bezier(.2,.7,.3,1) .1s backwards; }
@@ -130,7 +129,7 @@
   /* a little HD tucked under the logo's U, in the game's letters and the logo's yellow, as on the trailer's end frame
      (logo.webp is 1000x244: the notch under the U's right side, against the N's leg, at x 475, y 184; sized and placed
      by the logo's own width) */
-  #setup h1 .hd { position: absolute; left: 47.5%; top: 75.4%; font: 400 calc(clamp(240px, 42vw, 460px) * .04)/1 var(--px);
+  #setup h1 .hd { position: absolute; left: 47.5%; top: 75.4%; font: 900 italic calc(clamp(240px, 42vw, 460px) * .05)/1 var(--px);
     color: #f2f714; text-shadow: 3px 4px 0 rgba(0,0,0,.55); white-space: nowrap; }
   #setup .aka { margin: 8px 0 0; font-size: .74rem; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); animation: su-fade 1s ease .2s backwards; }
   #setup .ver { margin: 10px 0 0; font-size: .86rem; font-weight: 600; color: var(--ink); animation: su-fade 1s ease .3s backwards; }
@@ -142,6 +141,26 @@
   #setup .btn:focus-visible, #setup .lnk:focus-visible { outline: 2px solid var(--yel); outline-offset: 3px; }
   #setup .cta { flex-direction: column; align-items: center; }
   #setup .cta [hidden] { display: none; }
+  /* the desktop app's downloads: beside the browser button, its platforms in a panel (GitHub's latest release) */
+  /* two ways to play, side by side: here in the browser, or the app; each says which it is underneath */
+  #setup .cta .row { display: flex; gap: 1rem; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+  #setup .cta .way { display: flex; flex-direction: column; align-items: center; gap: .45rem; }
+  #setup .cta .cap { font-size: .8rem; color: var(--muted); }
+  #setup .cta .or { align-self: flex-start; line-height: 3.1rem; font-size: .86rem; color: var(--dim); }
+  @media (max-width: 520px) { #setup .cta .row { flex-direction: column; align-items: center; gap: .5rem; } #setup .cta .or { line-height: 1.4; align-self: center; } }
+  #setup .btn.alt { color: var(--ink); background: transparent; box-shadow: inset 0 0 0 2px var(--line); }
+  #setup .btn.alt:hover, #setup .info.open .btn.alt { background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 2px var(--yel); }
+  #setup .cta .info .pop.dl { width: 290px; }
+  #setup .pop.dl ul { padding: .9rem 0 0; }
+  #setup .pop.dl li { padding: 0; }
+  #setup .pop.dl li::before { display: none; }
+  #setup .pop.dl li a { display: flex; align-items: center; gap: .6rem; padding: .45rem 0; color: var(--ink); text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.06); }
+  #setup .pop.dl li a:hover { color: var(--yel); }
+  #setup .pop.dl li a small { margin-left: auto; color: var(--dim); }
+  #setup .pop p a { color: var(--ink); text-underline-offset: 3px; text-decoration-color: var(--yel); }
+  #setup .pop p a:hover { color: var(--yel); }
+  #setup .pop.dl p a { color: var(--muted); }
+  #setup .pop.dl li a .ico { width: 16px; height: 16px; flex: none; color: var(--yel); }
   #setup .cta .again { cursor: pointer; font-size: .82rem; color: var(--dim); text-decoration: underline; text-underline-offset: 3px; }
   #setup .cta .again:hover { color: var(--ink); }
   #setup .status { margin-top: .9rem; max-width: 36em; font-size: .92rem; color: var(--muted); }
@@ -176,11 +195,30 @@
   #setup .info.open .pop { opacity: 1; visibility: visible; transform: translateX(-50%); }
   @media (hover: hover) { #setup .info:hover .pop { opacity: 1; visibility: visible; transform: translateX(-50%); } }
   /* headings as the trailer's captions: white game-style letters in a black box, a yellow line under */
-  #setup .pop h2 { margin: 0 0 .8rem; padding: .85rem 1.1rem .75rem; background: #000; font: 400 .74rem/1.5 var(--px); color: #fff; letter-spacing: .02em; }
-  #setup .pop h3 { margin: 1rem 1.1rem .35rem; font: 400 .55rem var(--px); color: var(--yel); }
+  #setup .pop h2 { margin: 0 0 .8rem; padding: .85rem 1.1rem .75rem; background: #000; font: 800 1.02rem/1.4 var(--px); color: #fff; }
+  #setup .pop h3 { margin: 1rem 1.1rem .35rem; font: 800 .7rem var(--px); color: var(--yel); text-transform: uppercase; letter-spacing: .08em; }
   #setup .pop p, #setup .pop ul, #setup .pop ol, #setup .pop .keys { margin: 0 1.1rem; font-size: .86rem; line-height: 1.5; color: var(--muted); }
   #setup .pop p + p { margin-top: .5rem; }
   #setup .pop ul + p { margin-top: .9rem; }
+  /* the desktop app's own front page: the logo and two steps, nothing else (no trailer, other ports, support or source
+     links: About has those); Keys and About in a small line under them */
+  #setup.app .aka, #setup.app .ver, #setup.app .tv, #setup.app .ports, #setup.app .cta, #setup.app .more .info:not(.keep), #setup.app .status:empty { display: none; }
+  #setup.app main { padding-top: 9vh; }
+  #setup.app h1 { margin-bottom: 34px; }
+  #setup .steps { display: none; list-style: none; margin: 0 auto; padding: 0; max-width: 460px; text-align: left; }
+  #setup.app .steps { display: block; }
+  #setup .steps li { display: flex; align-items: center; gap: 16px; padding: 16px 0; border-top: 1px solid rgba(255,255,255,.08); }
+  #setup .steps li:first-child { border-top: 0; }
+  #setup .steps .n { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font: 700 1rem/1 inherit; color: #070a16; background: var(--yel); }
+  #setup .steps li.off .n { background: var(--dim); }
+  #setup .steps .t { flex: 1; min-width: 0; }
+  #setup .steps .t b { display: block; color: var(--ink); font-size: 1rem; }
+  #setup .steps .t small { display: block; margin-top: 3px; color: var(--muted); font-size: .8rem; line-height: 1.4; }
+  #setup .steps .btn { flex: none; }
+  #setup .steps li.off .btn { opacity: .35; pointer-events: none; }
+  #setup .steps label { display: inline-flex; align-items: center; gap: .4rem; margin: 8px 14px 0 0; color: var(--muted); font-size: .8rem; cursor: pointer; }
+  #setup .steps input[type=checkbox] { accent-color: var(--yel); width: 14px; height: 14px; }
+  #setup.app .more { margin-top: 28px; }
   /* the changelog's older versions: a line each that opens (as on the VF1 and FunKey pages) */
   #setup .pop details { margin: .55rem 1.1rem 0; padding-top: .5rem; border-top: 1px solid rgba(255,255,255,.08); }
   #setup .pop details summary { cursor: pointer; list-style: none; font-size: .86rem; font-weight: 700; color: var(--ink); }
@@ -196,7 +234,7 @@
   #setup .pop ul li::before { content: ""; position: absolute; left: 0; top: .55em; width: 6px; height: 6px; background: var(--yel); }
   #setup .pop ol { counter-reset: n; }
   #setup .pop ol li { padding-left: 1.4rem; counter-increment: n; }
-  #setup .pop ol li::before { content: counter(n); position: absolute; left: 0; top: 0; font: 400 .6rem/calc(.86rem * 1.5) var(--px); color: var(--yel); }
+  #setup .pop ol li::before { content: counter(n); position: absolute; left: 0; top: 0; font: 800 .8rem/calc(.86rem * 1.5) var(--px); color: var(--yel); }
   #setup .pop code { font: 500 .78rem ui-monospace, Menlo, monospace; color: var(--ink); background: #05070f; border-radius: 3px; padding: .05rem .35rem; }
   #setup .keys { display: grid; grid-template-columns: max-content 1fr; gap: .4rem .9rem; align-items: baseline; }
   #setup kbd { font: 700 .72rem ui-monospace, Menlo, monospace; background: #e9e4d6; color: #111; border-radius: 3px; padding: .05rem .4rem;
@@ -244,7 +282,7 @@
       </div></span></nav>
     <h1><img src="logo.webp" alt="STUNTS HD" width="1000" height="245"><span class="hd" aria-hidden="true">HD</span></h1>
     <p class="aka">Also known as 4D Sports Driving</p>
-    <p class="ver">The 1990 original, recompiled for your browser in <b style="color: var(--yel)">HD widescreen</b></p>
+    <p class="ver">The 1990 original, recompiled in <b style="color: var(--yel)">HD widescreen</b>: play in your browser or on desktop</p>
     <div class="tv">
       <div class="hills"><i class="far"></i><i class="near"></i></div>
       <div class="set">
@@ -256,13 +294,29 @@
       </div>
     </div>
     <div class="cta">
-      <label class="btn" for="su-file"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 13V3M5.5 7.5 10 3l4.5 4.5M3 13v3.5h14V13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Upload your game files</label>
-      <button class="btn" id="su-open" hidden><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 5.5v10h15v-8H9.5l-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Open your Stunts folder</button>
+      <div class="row">
+      <div class="way">
+      <label class="btn" for="su-file"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3.5v13l10.5-6.5z" fill="currentColor"/></svg>Play in your browser</label>
       <button class="btn" id="su-start" hidden><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3.5v13l10.5-6.5z" fill="currentColor"/></svg>Start game</button>
+        <small class="cap">Pick your Stunts zip: it stays on your computer</small>
       <label class="again" for="su-file" hidden>or use a different copy</label>
+      </div>
+      <span class="or">or</span>
+      <div class="way">
+      <span class="info"><button class="btn alt" aria-expanded="false"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M3 13v3.5h14V13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Download for desktop</button>
+        <div class="pop dl"><h2>Desktop app</h2><ul><li><a href="https://github.com/mr-finster/stunts-hd/releases/latest/download/Stunts-HD-mac-universal.zip"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M3 13v3.5h14V13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>macOS <small>Apple Silicon and Intel</small></a></li><li><a href="https://github.com/mr-finster/stunts-hd/releases/latest/download/Stunts-HD-win-x64.zip"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M3 13v3.5h14V13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Windows <small>x64</small></a></li><li><a href="https://github.com/mr-finster/stunts-hd/releases/latest/download/Stunts-HD-win-arm64.zip"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M3 13v3.5h14V13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Windows <small>ARM</small></a></li><li><a href="https://github.com/mr-finster/stunts-hd/releases/latest/download/Stunts-HD-linux-x86_64.AppImage"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M3 13v3.5h14V13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Linux <small>x64 AppImage</small></a></li><li><a href="https://github.com/mr-finster/stunts-hd/releases/latest/download/Stunts-HD-linux-arm64.AppImage"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M3 13v3.5h14V13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Linux <small>ARM AppImage</small></a></li></ul><p style="margin-top:.7rem"><small>Needs your own Stunts 1.1, as here. <a href="https://github.com/mr-finster/stunts-hd/releases/latest" target="_blank" rel="noopener">Release notes</a></small></p></div></span>
+        <small class="cap">App for macOS, Windows and Linux</small>
+      </div>
+      </div>
+      <button class="btn" id="su-open" hidden><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 5.5v10h15v-8H9.5l-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Open your Stunts folder</button>
     </div>
     <input type="file" id="su-file" accept=".zip,application/zip" multiple>
     <div class="status" id="su-status"></div>
+    <ol class="steps" id="su-steps">
+      <li><span class="n">1</span><span class="t"><b>Open your Stunts folder</b><small>Your copy of Stunts 1.1: its folder, or a zip of it. It's read here, never uploaded.</small></span></li>
+      <li class="off"><span class="n">2</span><span class="t"><b>Play</b><small id="su-mine">Once your game is in.</small>
+        <label><input type="checkbox" id="su-full">Fullscreen</label><label><input type="checkbox" id="su-skip">Skip this screen next time</label></span></li>
+    </ol>
 
     <nav class="more" aria-label="More about it">
       <span class="info"><a class="lnk" id="su-watch" href="https://youtu.be/WifwNFpG96o" target="_blank" rel="noopener">${SIGN.play}Watch</a></span>
@@ -331,11 +385,15 @@
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.log}Changelog</button>
         <div class="pop">
           <h2>Changelog</h2>
-          <p><b>v1.4.1</b> &middot; Oct 11 2026</p>
+          <p><b>v1.5</b> &middot; Oct 11 2026</p>
           <ul>
+            <li>Download for desktop: a button beside Play in your browser, for macOS, Windows and Linux.</li>
+            <li>The desktop app has its own simple front page: open your Stunts folder, then play. It can go fullscreen and skip that page next time.</li>
+          </ul>
+          <details><summary>v1.4.1 &middot; Oct 11 2026</summary><ul>
             <li>Desktop app: one Mac download that runs at full speed on Apple Silicon and Intel (the Intel-only one crawled on Apple Silicon Macs).</li>
             <li>The app has its own icon on every system.</li>
-          </ul>
+          </ul></details>
           <details><summary>v1.4 &middot; Oct 11 2026</summary><ul>
             <li>A desktop app for macOS, Windows and Linux, on GitHub: open your Stunts folder or zip and play, no browser needed.</li>
           </ul></details>
@@ -364,7 +422,7 @@
       <span class="info"><a class="lnk" id="su-support" href="https://buymeacoffee.com/mrfinster" target="_blank" rel="noopener">${SIGN.sup}Support me</a></span>
     </nav>
 
-    <p class="note">A fan-made recompilation of Stunts (Distinctive Software, 1990): the game's own code is translated in your browser from the copy you bring, and the PC around it is rebuilt. No game files are included: you need your own copy. Stunts © 1990 Distinctive Software / Broderbund. Not affiliated with or endorsed by them.</p>
+    <p class="note">A fan-made recompilation of Stunts (Distinctive Software, 1990): the game's own code is translated ${root.stuntsHost ? 'on your computer' : 'in your browser'} from the copy you bring, and the PC around it is rebuilt. No game files are included: you need your own copy. Stunts © 1990 Distinctive Software / Broderbund. Not affiliated with or endorsed by them.</p>
   </main>
 `;
 
@@ -376,7 +434,7 @@
     // the trailer fetched whole and played from memory: the host answers no byte ranges, and without them the
     // player can't skip back or forward
     let tvUrl = '';
-    fetch('media/trailer.mp4').then(r => r.ok ? r.blob() : Promise.reject())
+    if (!root.stuntsHost) fetch('media/trailer.mp4').then(r => r.ok ? r.blob() : Promise.reject())
       .then(b => { if (!tv.isConnected) return; tv.src = tvUrl = URL.createObjectURL(b); tv.play().catch(() => {}); }).catch(() => tv.remove());
     const say = h => { status.innerHTML = h; try { status.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (_) {} };   // (the answer in view: on a short window it fell below the fold)
     if (note) say(note);
@@ -387,12 +445,42 @@
     // a good set in (from a zip just now, or kept from last time): the big button starts the game; the welcome screen
     // stays up till then (its links, Support me), and a small link loads a different copy
     const start = el.querySelector('#su-start'), up = el.querySelector('.cta label.btn'), again = el.querySelector('.cta .again');
-    // (in the desktop app: the system's own dialog for your Stunts folder or zip, in place of the upload button)
+    // (in the desktop app: the system's own dialog for your Stunts folder or zip, in place of the browser button)
     const open = el.querySelector('#su-open'), host = root.stuntsHost;
     if (host) { open.hidden = false; up.hidden = true; open.onclick = async () => { const list = await host.pickGame(); if (list) take(list.map(f => new File([f.data], f.name))); }; again.onclick = e => { e.preventDefault(); open.onclick(); }; }
+    // the desktop app's own front page (see the CSS): your game in a line, its two options (kept in this app's storage:
+    // index.html reads them at the next start), About with the links the page leaves out, and its own wording
+    if (host) {
+      el.classList.add('app');
+      tv.pause(); tv.removeAttribute('src');
+      const li = el.querySelectorAll('#su-steps li');
+      li[0].appendChild(open); li[1].appendChild(start); start.hidden = false;
+      for (const i of el.querySelectorAll('.more .info')) if (/Keys/.test(i.firstElementChild.textContent)) i.classList.add('keep');
+      for (const k of ['full', 'skip']) {
+        const box = el.querySelector('#su-' + k);
+        try { box.checked = localStorage.getItem('stunts-app-' + k) === '1'; } catch (_) {}
+        box.onchange = () => { try { localStorage.setItem('stunts-app-' + k, box.checked ? '1' : '0'); } catch (_) {} };
+      }
+      el.querySelector('#su-skip').parentElement.title = 'The Welcome Screen item in the Game menu brings this screen back';
+      const ab = document.createElement('span'); ab.className = 'info keep';
+      ab.innerHTML = `<button class="lnk" aria-expanded="false">${SIGN.log}About</button><div class="pop"><h2>About</h2>`
+        + '<p><b>Stunts HD <span id="su-version"></span></b>: Stunts / 4D Sports Driving (1990), recompiled and redrawn in HD. Your own copy of the game is needed: none of it is included.</p>'
+        + '<p>Open source (MIT): <a href="https://github.com/mr-finster/stunts-hd" target="_blank" rel="noopener">github.com/mr-finster/stunts-hd</a><br>Play in the browser: <a href="https://stunts-recomp.pages.dev/" target="_blank" rel="noopener">stunts-recomp.pages.dev</a><br>Like it? <a href="https://buymeacoffee.com/mrfinster" target="_blank" rel="noopener">Buy me a coffee</a></p>'
+        + '<p>Built on the Restunts project\'s reverse engineering. three.js (MIT).</p></div>';
+      el.querySelector('nav.more').appendChild(ab);
+      host.version().then(v => { const e = el.querySelector('#su-version'); if (e) e.textContent = v; }).catch(() => {});
+    }
+    // (your copy in a line: its tracks, and the cars it adds to the game's eleven)
+    const STOCK = new Set(['ANSX', 'AUDI', 'COUN', 'FGTO', 'JAGU', 'LANC', 'LM02', 'P962', 'PC04', 'PMIN', 'VETT']);
+    const mine = files => {
+      const n = Object.keys(files), tracks = n.filter(k => k.endsWith('.TRK')).length, cars = n.filter(k => /^CAR(.{4})\.RES$/.test(k) && !STOCK.has(k.slice(3, 7))).length;
+      return `Your game: Stunts 1.1 &middot; ${tracks} track${tracks === 1 ? '' : 's'}${cars ? ` &middot; ${cars} add-on car${cars === 1 ? '' : 's'}` : ''}`;
+    };
     const armed = files => {
       up.hidden = true; open.hidden = true; start.hidden = false; again.hidden = false;
-      start.onclick = () => { if (closeWatch) closeWatch(); tv.pause(); if (tvUrl) URL.revokeObjectURL(tvUrl); el.remove(); st.remove(); onReady(files); };
+      el.classList.add('armed'); el.querySelector('#su-mine').innerHTML = mine(files);
+      if (host) { start.innerHTML = start.innerHTML.replace('Start game', 'Play'); open.hidden = false; again.hidden = true; el.querySelectorAll('#su-steps li')[1].classList.remove('off'); open.lastChild.textContent = 'Change'; }
+      start.onclick = () => { if (host) { let f = false; try { f = localStorage.getItem('stunts-app-full') === '1'; } catch (_) {} if (f) host.fullscreen(true); } if (closeWatch) closeWatch(); tv.pause(); if (tvUrl) URL.revokeObjectURL(tvUrl); el.remove(); st.remove(); onReady(files); };
     };
     if (ready) armed(ready);
     // (a hint at which copy it was, when the program is not the one this page knows: 4D Sports Driving, the game's
@@ -426,6 +514,7 @@
       try { await store(files); } catch (_) {}
       say(`<span class="ok">✓ Found the game: ${names.length} files, ${tracks} track${tracks === 1 ? '' : 's'}${replays ? `, ${replays} replay${replays === 1 ? '' : 's'}` : ''}.</span>`);
       armed(files); start.focus();
+      if (host) say('');   // (the app says it in its own line: your game, under the button)
     }
     input.onchange = async () => { await take(input.files); input.value = ''; };
     // a drop anywhere on the page (the TV says where)
