@@ -331,10 +331,14 @@
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.log}Changelog</button>
         <div class="pop">
           <h2>Changelog</h2>
-          <p><b>v1.4</b> &middot; Oct 11 2026</p>
+          <p><b>v1.4.1</b> &middot; Oct 11 2026</p>
           <ul>
-            <li>A desktop app for macOS, Windows and Linux, on GitHub: open your Stunts folder or zip and play, no browser needed.</li>
+            <li>Desktop app: one Mac download that runs at full speed on Apple Silicon and Intel (the Intel-only one crawled on Apple Silicon Macs).</li>
+            <li>The app has its own icon on every system.</li>
           </ul>
+          <details><summary>v1.4 &middot; Oct 11 2026</summary><ul>
+            <li>A desktop app for macOS, Windows and Linux, on GitHub: open your Stunts folder or zip and play, no browser needed.</li>
+          </ul></details>
           <details><summary>v1.3 &middot; Oct 11 2026</summary><ul>
             <li>Big add-on cars (like the DAF Siluro) no longer stop the game when the race loads: it now has as much memory as in DOSBox.</li>
             <li>If the game ever does stop, the welcome page says why.</li>

@@ -108,6 +108,12 @@ async function runSelftest(win) {
     const racing = await js('!!(view.cur && view.cur.cam)');
     log('racing', racing);
     await js('window.__kd("ArrowUp", 1), 1'); await sleep(3000);
+    // how it runs: frames a second over 3 s, the GPU's state and renderer (a slow app is a software-drawn one)
+    win.show(); win.focus(); await sleep(1000);
+    log('game frames a second', await js('new Promise(r => { const I = new Int32Array(scene), a = Atomics.load(I, 1); setTimeout(() => r(Math.round((Atomics.load(I, 1) - a) / 3)), 3000); })'));
+    log('fps', await js('new Promise(r => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 3000) requestAnimationFrame(f); else r(Math.round(n / 3)); }; requestAnimationFrame(f); })'));
+    log('gpu', JSON.stringify(app.getGPUFeatureStatus()));
+    log('renderer', await js('(() => { const g = document.createElement("canvas").getContext("webgl2"); const d = g && g.getExtension("WEBGL_debug_renderer_info"); return d ? g.getParameter(d.UNMASKED_RENDERER_WEBGL) : "none"; })()'));
     // F: fullscreen, as on the website (a real key press: the page's fullscreen request needs one)
     win.show(); win.focus();
     for (const type of ['keyDown', 'char', 'keyUp']) win.webContents.sendInputEvent({ type, keyCode: 'F' });
