@@ -64,7 +64,7 @@
   // (the desktop app: straight into the game when you asked to skip this screen, unless its Welcome Screen menu brought
   // you here (?welcome); fullscreen at the start when you asked for that too)
   const host = window.stuntsHost, welcome = /[?&]welcome\b/.test(location.search);
-  let pref = k => { try { return localStorage.getItem('stunts-app-' + k) === '1'; } catch (_) { return false; } };
+  let pref = k => { try { return localStorage.getItem('stunts-app-' + k) !== '0'; } catch (_) { return true; } };   // (both on unless turned off)
   if (host && code && files && !again && !welcome && pref('skip')) restart = true;
   if ((!code || files) && !(restart && code && files)) {
     files = await new Promise(res => StuntsSetup.show(res, note, StuntsBoot.code, files));

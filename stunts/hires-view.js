@@ -319,7 +319,88 @@ void main() {
         im.instanceMatrix.needsUpdate = true;
         this.statics.add(im);
       }
-      this.hidden = [];
+      this.hidden = []; this.giDirty = true;
+    }
+
+    // Baked light (L), at the first frame it is wanted after a track is built: the track lit by the whole sky, seen from
+    // 64 directions spread over it (more of them high up, as the sky's light comes more from there). From each, the
+    // track's depth (orthographic, its whole extent); then every cell of the volume over the track counts the
+    // directions it can see the sky in (nothing nearer the sky at its place in that view), as a share, summed in a
+    // half-float target. The view straight down also gives the ground's colour under each cell, fading with height.
+    // Needs float colour targets (WebGL2 with EXT_color_buffer_float): without them, no baked light.
+    bakeGI() {
+      const r = this.r, gl = r.getContext(), t0 = performance.now();
+      this.giDirty = false;
+      if (!gl.getExtension('EXT_color_buffer_float') && !gl.getExtension('EXT_color_buffer_half_float')) { this.giAvail = false; return; }
+      const mb = this.mapBox; if (!mb || mb.x0 > mb.x1) return;
+      let ytop = 0; for (const im of this.statics.children) { const g = im.geometry; if (!g.boundingBox) g.computeBoundingBox();
+        for (const e of im.userData.inst || []) ytop = Math.max(ytop, e[1] + g.boundingBox.max.y); }
+      const lo = new T.Vector3(mb.x0, -64, mb.z0), size = new T.Vector3(mb.x1 - mb.x0, Math.min(ytop, 6000) + 400, mb.z1 - mb.z0);
+      const NX = Math.min(384, Math.ceil(size.x / 80)), NZ = Math.min(384, Math.ceil(size.z / 80)), NY = 32, TX = 8, TY = 4;
+      const N = 64, DM = 1024;
+      if (!this.giRT || this.giRT.width !== NX * TX || this.giRT.height !== NZ * TY) {
+        if (this.giRT) this.giRT.dispose();
+        this.giRT = new T.WebGLRenderTarget(NX * TX, NZ * TY, { type: T.HalfFloatType, format: T.RGBAFormat, minFilter: T.LinearFilter, magFilter: T.LinearFilter, depthBuffer: false, stencilBuffer: false });
+      }
+      if (!this.giDM) {
+        this.giDM = new T.WebGLRenderTarget(DM, DM, { minFilter: T.NearestFilter, magFilter: T.NearestFilter });
+        this.giDM.depthTexture = new T.DepthTexture(DM, DM); this.giDM.depthTexture.type = T.UnsignedIntType;
+        this.giOver = new T.MeshBasicMaterial({ vertexColors: true, side: T.DoubleSide, fog: false });
+        this.giAcc = new T.ShaderMaterial({
+          uniforms: { tD: { value: null }, tC: { value: null }, vp: { value: new T.Matrix4() }, lo: { value: new T.Vector3() }, size: { value: new T.Vector3() },
+            res: { value: new T.Vector3() }, tiles: { value: new T.Vector2(TX, TY) }, w: { value: 0 }, down: { value: 0 }, ground: { value: new T.Color() }, depthSpan: { value: 1 } },
+          vertexShader: 'void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }',
+          fragmentShader: `uniform sampler2D tD; uniform sampler2D tC; uniform mat4 vp; uniform vec3 lo; uniform vec3 size; uniform vec3 res; uniform vec2 tiles;
+uniform float w; uniform float down; uniform vec3 ground; uniform float depthSpan;
+void main() {
+  vec2 px = gl_FragCoord.xy, tile = floor(px / res.xz), xz = px - tile * res.xz;
+  float layer = tile.y * tiles.x + tile.x;
+  vec3 p = lo + vec3(xz.x, layer + 0.5, xz.y) / vec3(res.x, res.y, res.z) * size;
+  vec4 c = vp * vec4(p, 1.0); vec3 n = c.xyz / c.w * 0.5 + 0.5;
+  float vis = 0.0;
+  // (four taps a texel apart: a softer edge where a cell sits at a shadow's border in this direction)
+  for (int i = 0; i < 4; i++) { vec2 o = (vec2(float(i - (i / 2) * 2), float(i / 2)) - 0.5) / ${DM}.0;
+    vis += n.z <= texture2D(tD, n.xy + o).r + 0.0004 ? 0.25 : 0.0; }
+  vec3 rgb = vec3(0.0);
+  if (down > 0.5) { float d = texture2D(tD, n.xy).r; vec3 a = d >= 0.99999 ? ground : texture2D(tC, n.xy).rgb;
+    float h = max(0.0, (n.z - min(d, 1.0)) * -depthSpan); h = d >= 0.99999 ? p.y : h;
+    rgb = a * exp(-h / 260.0); }
+  gl_FragColor = vec4(rgb, vis * w);
+}`,
+          depthTest: false, depthWrite: false, blending: T.CustomBlending, blendEquation: T.AddEquation, blendSrc: T.OneFactor, blendDst: T.OneFactor,
+          blendEquationAlpha: T.AddEquation, blendSrcAlpha: T.OneFactor, blendDstAlpha: T.OneFactor });
+        this.giQuad = new T.Mesh(new T.PlaneGeometry(2, 2), this.giAcc); this.giQuad.frustumCulled = false;
+        this.giQS = new T.Scene(); this.giQS.add(this.giQuad); this.giQC = new T.Camera();
+      }
+      const U = this.giAcc.uniforms;
+      U.lo.value.copy(lo); U.size.value.copy(size); U.res.value.set(NX, NY, NZ); U.tD.value = this.giDM.depthTexture; U.tC.value = this.giDM.texture;
+      U.ground.value.copy(this.groundMat.color);
+      // (the scene with only the track in it: everything else hidden for the bake, put back after)
+      const vis = this.scene.children.map(c => c.visible), prevT = r.getRenderTarget(), sm = r.shadowMap.autoUpdate, ac = r.autoClear, cc = r.getClearColor(new T.Color()), ca = r.getClearAlpha();
+      for (const c of this.scene.children) c.visible = c === this.statics;
+      const fog = this.scene.fog; this.scene.fog = null; this.scene.overrideMaterial = this.giOver; r.shadowMap.autoUpdate = false;
+      const ctr = lo.clone().addScaledVector(size, 0.5), R = size.length() * 0.5 + 200;
+      const cam = new T.OrthographicCamera(-R, R, R, -R, 1, R * 2 + 400);
+      r.setRenderTarget(this.giRT); r.setClearColor(0x000000, 0); r.clear(true, false, false);
+      for (let i = 0; i < N; i++) {
+        // (directions: cosine-weighted over the sky, a Fibonacci spiral; the first straight up)
+        const u = (i + 0.5) / N, rad = Math.sqrt(u) * (i ? 1 : 0), phi = i * 2.39996323, y = Math.sqrt(1 - rad * rad);
+        const d = new T.Vector3(Math.cos(phi) * rad, y, Math.sin(phi) * rad);
+        cam.position.copy(ctr).addScaledVector(d, R + 200); cam.up.set(0, 0, 1); if (Math.abs(d.y) < 0.99) cam.up.set(0, 1, 0);
+        cam.lookAt(ctr); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+        r.setRenderTarget(this.giDM); r.setClearColor(0x000000, 0); r.autoClear = true; r.render(this.scene, cam);
+        U.vp.value.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse); U.w.value = 1 / N; U.down.value = i ? 0 : 1; U.depthSpan.value = cam.far - cam.near;
+        r.setRenderTarget(this.giRT); r.autoClear = false; r.render(this.giQS, this.giQC);
+      }
+      this.scene.overrideMaterial = null; this.scene.fog = fog; this.scene.children.forEach((c, k) => { c.visible = vis[k]; });
+      r.shadowMap.autoUpdate = sm; r.autoClear = ac; r.setClearColor(cc, ca); r.setRenderTarget(prevT);
+      GI_U.tGI.value = this.giRT.texture; GI_U.giMin.value.copy(lo); GI_U.giSize.value.copy(size); GI_U.giRes.value.set(NX, NY, NZ); GI_U.giTiles.value.set(TX, TY);
+      this.giAvail = true; this.giMs = Math.round(performance.now() - t0);
+    }
+    giFrame() {
+      if (root.location && /[?&]gidebug=(\d)/.test(root.location.search)) GI_U.giDbg.value = +/[?&]gidebug=(\d)/.exec(root.location.search)[1];
+      if (this.giOn && this.giDirty && this.statics.children.length) this.bakeGI();
+      GI_U.giOn.value = this.giOn && this.giAvail && !this.giDirty ? 1 : 0;
     }
 
     // The original draws some one-sided faces from both sides, depending on the direction it looks at a piece
@@ -1220,6 +1301,7 @@ void main() {
       if (this.skyQuad.visible) this.r.render(this.skyScene, this.skyCam);
       if (this.bandOn) this.r.render(this.bandScene, this.skyCam);
       if (this.stripOn) this.r.render(this.stripScene, this.skyCam);
+      this.giFrame();
       this.r.render(this.scene, this.cam);
       if (race && this.aoPass) this.aoPass.render(this.scene, this.cam, [this.dynShadow.mesh, this.dynCar.mesh, this.cloudDyn.mesh, this.bgDyn.mesh, this.stage].concat(this.grass ? this.grass.map(g => g.mesh) : [], this.blobs || []));
       if (race) this.opaque();
@@ -1933,6 +2015,7 @@ void main() {
       if (!/[?&]norefl/.test(root.location.search) && this.waterInView()) { if ((this.reflN = (this.reflN || 0) + 1) % 2 || !REFL.on.value || this.reflFor !== 'pv') { this.reflect(); this.reflFor = 'pv'; } } else REFL.on.value = 0;
       this.r.render(this.domeScene, this.cam);
       if (this.stripOn) this.r.render(this.stripScene, this.skyCam);
+      this.giFrame();
       this.r.render(this.scene, this.cam);
       if (this.aoPass) this.aoPass.render(this.scene, this.cam, [this.dynShadow.mesh, this.cloudDyn.mesh, this.bgDyn.mesh, this.stage]);
       this.opaque();
@@ -2254,6 +2337,21 @@ void main() {
   const HZ_R = 56000;   // the race horizon's distance (the fog's far end is 60000)
   const HD_SKY = /[?&]hdsky/.test(root.location ? root.location.search : '');
   const SUN_DIR = { value: new T.Vector3(0, 1, 0) };
+  // Baked light (L): how much of the sky each place round the track sees, worked out once per track (bakeGI) and kept
+  // in a coarse volume over it; the light from the sky is dimmed by it (corners, under bridges, beside buildings), and
+  // the ground's colour, close under a place, lights faces turned away from the sky. The volume's layers sit side by
+  // side in one 2D texture (giTiles of them across, down), each giRes.x by giRes.z texels.
+  const GI_U = { tGI: { value: null }, giOn: { value: 0 }, giMin: { value: new T.Vector3() }, giSize: { value: new T.Vector3(1, 1, 1) },
+    giRes: { value: new T.Vector3(1, 1, 1) }, giTiles: { value: new T.Vector2(1, 1) }, giAmt: { value: 1 }, giBounce: { value: 0.6 }, giDbg: { value: 0 } };
+  const GI_GLSL = `uniform sampler2D tGI; uniform float giOn; uniform vec3 giMin; uniform vec3 giSize; uniform vec3 giRes; uniform vec2 giTiles; uniform float giAmt; uniform float giBounce; uniform float giDbg;
+vec4 giTap( vec3 p ) {
+  vec3 q = ( p - giMin ) / giSize * giRes - 0.5;
+  float ly = clamp( q.y, 0.0, giRes.y - 1.0 ), l0 = floor( ly ), l1 = min( l0 + 1.0, giRes.y - 1.0 );
+  vec2 xz = clamp( q.xz, vec2( 0.0 ), giRes.xz - 1.0 ) + 0.5, at = giTiles * giRes.xz;
+  vec2 t0 = vec2( mod( l0, giTiles.x ), floor( l0 / giTiles.x ) ), t1 = vec2( mod( l1, giTiles.x ), floor( l1 / giTiles.x ) );
+  return mix( texture2D( tGI, ( t0 * giRes.xz + xz ) / at ), texture2D( tGI, ( t1 * giRes.xz + xz ) / at ), ly - l0 );
+}
+`;
   const LINE_PX = { value: 0.3 };
   // the car select's picture (wall, curtains, carpet, turntable) for the cars' reflections there (on: car select only)
   const CARPIC = { tex: { value: null }, on: { value: 0 } };
@@ -2494,6 +2592,7 @@ void main() {
     if (OG) { grain = 0; patch = 0; }
     m.customProgramCacheKey = () => 'm' + grain + ':' + patch + ':' + car + ':' + !!(o.alphaToCoverage || o.transparent) + ':' + OG + ':' + (o.fog === false);
     m.onBeforeCompile = sh => {
+      Object.assign(sh.uniforms, GI_U);
       sh.uniforms.sunDirW = SUN_DIR; sh.uniforms.roofA = ROOF.a; sh.uniforms.roofLo = ROOF.lo; sh.uniforms.linePx = LINE_PX; sh.uniforms.carP = CAR_P; sh.uniforms.headP = HEAD.p; sh.uniforms.headD = HEAD.d; sh.uniforms.ripple = RIPPLE; sh.uniforms.tCarPic = CARPIC.tex; sh.uniforms.carPicOn = CARPIC.on; sh.uniforms.shRange = SH_RANGE; sh.uniforms.shFade = SH_FADE; sh.uniforms.tRefl = REFL.tex; sh.uniforms.reflOn = REFL.on; sh.uniforms.waterC = REFL.waterC; sh.uniforms.reflRes = REFL.res; sh.uniforms.waterY = REFL.level; sh.uniforms.depthC = DEPTH.c; sh.uniforms.depthNear = DEPTH.near; sh.uniforms.depthFar = DEPTH.far; sh.uniforms.depthAmt = DEPTH.amt; sh.uniforms.tCarEnv = CARENV.tex; sh.uniforms.carEnvOn = CARENV.on; sh.uniforms.carEnvSky = CARENV.sky; sh.uniforms.carEnvAmt = CARENV.amt;
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform vec3 sunDirW; uniform float linePx;\nattribute float rank; attribute float pat; attribute float spin; attribute vec3 lofs; attribute float isec; attribute vec2 c2; attribute vec3 f0; attribute vec3 fn; varying float vOne; varying float vRank; varying float vPat; varying float vSpin; varying vec3 vWPos;')
         .replace('#include <logdepthbuf_vertex>', `#include <logdepthbuf_vertex>\nvRank = rank; vPat = pat; vSpin = spin; vOne = 0.0;\nif (dot(fn, fn) > 0.25) { vec4 p0 = vec4(f0, 1.0); vec3 n0 = fn;\n#ifdef USE_INSTANCING\np0 = instanceMatrix * p0; n0 = mat3(instanceMatrix) * n0;\n#endif\nvec4 e0 = modelViewMatrix * p0; vOne = (dot(mat3(modelViewMatrix) * n0, -e0.xyz) > 0.0) == ${ONE_FRONT ? 'false' : 'true'} && ${NOCULL ? 'false' : 'true'} ? 1.0 : 0.0; }\n#ifdef USE_INSTANCING\nif (isec > 0.5) { float b = 32.0 - isec; float w = b < 16.0 ? c2.x : c2.y; if (mod(floor(w / exp2(mod(b, 16.0))), 2.0) > 0.5) vOne = 0.0; }\n#endif\n`)
@@ -2671,7 +2770,7 @@ float vnoise(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 *
   #if ${car ? 1 : 0} && defined( CLEARCOAT )
   if (vSpin > 0.5) material.clearcoat = 0.0;   // no lacquer on tyres and rims
   #endif`)
-        .replace('void main() {', `void main() {
+        .replace('void main() {', GI_GLSL + `void main() {
   // the original's 4x4 stipple masks: as see-through as the share of their dots, through the multisampled
   // coverage (alpha to coverage: no sorting); without it, the dots themselves
   if (vOne > 0.5) discard;   // (the original's back-face test: one-sided polygons seen from behind)
@@ -2684,7 +2783,31 @@ float vnoise(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 *
     if (pm < 0.5) discard;   // (no dot pattern: the far-off and sky shapes drawn solid)
     #endif
   }`)
-        .replace('#include <tonemapping_fragment>', `  if (underRoof()) gl_FragColor.rgb = diffuseColor.rgb * 0.55;
+        .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+  if ( giOn > 0.5 ) {
+    // (the face's own normal, turned to the camera: flat shading's, from the screen; the volume read a little out from
+    // the face, a texel's size, so not from inside what it is on)
+    vec3 nW = normalize( inverseTransformDirection( normal, viewMatrix ) );
+    vec4 g = giTap( vWPos + nW * giSize / giRes * 1.1 );
+    // (the sky a face could see, alone in the open: all of it facing up, half facing sideways; what it sees here, against that)
+    float ao = clamp( g.a / max( 0.5 + 0.5 * nW.y, 0.25 ), 0.0, 1.0 );
+    reflectedLight.indirectDiffuse *= mix( 1.0, ao * ao * ( 3.0 - 2.0 * ao ), giAmt );
+    reflectedLight.directDiffuse *= mix( 1.0, 0.75 + 0.25 * ao, giAmt );   // (a little in the sun too: a corner's contact)
+    reflectedLight.indirectDiffuse += g.rgb * diffuseColor.rgb * giBounce * clamp( 0.65 - 0.65 * nW.y, 0.0, 1.0 );
+  }`)
+        .replace('#include <tonemapping_fragment>', `  #if ${OG ? 1 : 0}
+  if ( giOn > 0.5 ) {
+    // (the original look: its colour kept, only darker where less of the sky reaches, and tinted by the ground's
+    // colour close under a face turned away from the sky)
+    vec3 nW = normalize( inverseTransformDirection( normal, viewMatrix ) );
+    vec4 g = giTap( vWPos + nW * giSize / giRes * 1.1 );
+    float ao = clamp( g.a / max( 0.5 + 0.5 * nW.y, 0.25 ), 0.0, 1.0 );
+    gl_FragColor.rgb *= mix( 1.0, 0.45 + 0.55 * ao * ao * ( 3.0 - 2.0 * ao ), giAmt );
+    gl_FragColor.rgb += g.rgb * diffuseColor.rgb * giBounce * 0.5 * clamp( 0.65 - 0.65 * nW.y, 0.0, 1.0 );
+    if ( giDbg > 0.5 ) gl_FragColor.rgb = giDbg > 1.5 ? g.rgb : vec3( giDbg > 2.5 ? g.a : ao );   // (?gidebug: 1 the share of sky against the open, 2 the ground's colour, 3 the raw share)
+  }
+  #endif
+  if (underRoof()) gl_FragColor.rgb = diffuseColor.rgb * 0.55;
 #include <tonemapping_fragment>`)
         .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.a *= cov < 1.0 ? min(1.0, cov * 1.1) : 1.0;')   // (as see-through as the share of dots, a little more, at every distance: it was solid up close); solid close by: the deck you drive on is not a window)
         .replace('#include <logdepthbuf_fragment>', `#include <logdepthbuf_fragment>\n#if defined( USE_LOGDEPTHBUF ) && defined( USE_LOGDEPTHBUF_EXT )\n{ float d0 = gl_FragDepthEXT, rk = floor((vRank + 0.5) / ${RANKS}.0), ti = vRank - rk * ${RANKS}.0; gl_FragDepthEXT = vSpin > 0.5 ? d0 : d0 - rk * (0.6 * fwidth(d0) + 1e-5) - ti * ${TIE_D}; }\n#endif`);   // (decals over their base by the surface's own depth slope: nothing farther off shows through what is in front)

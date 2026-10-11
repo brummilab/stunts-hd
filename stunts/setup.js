@@ -74,6 +74,7 @@
     src: '<svg class="sg" viewBox="0 0 20 20"><rect x="1.5" y="1.5" width="17" height="17" fill="#2b2b2b"/><path d="M8 6.5 4.5 10 8 13.5M12 6.5l3.5 3.5-3.5 3.5" fill="none" stroke="#fff" stroke-width="1.8"/></svg>',   // (a dark sign with code brackets: the source on GitHub)
     play: '<svg class="sg" viewBox="0 0 20 20"><rect x="1.5" y="1.5" width="17" height="17" fill="#1d3fd8"/><path d="M7.5 5.5l6.5 4.5-6.5 4.5z" fill="#fff"/></svg>',   // (an information sign: the trailer)
     log: '<svg class="sg" viewBox="0 0 20 20"><rect x="2" y="3" width="16" height="14" fill="#ececec"/><path d="M5 7.5h10M5 12.5h7" stroke="#333" stroke-width="2"/></svg>',   // (a notice board: the changelog)
+    quit: '<svg class="sg" viewBox="0 0 20 20"><path d="M10 2.5v7" stroke="#e04040" stroke-width="2.6" stroke-linecap="round"/><path d="M5.6 5.4a6.4 6.4 0 1 0 8.8 0" fill="none" stroke="#e04040" stroke-width="2.6" stroke-linecap="round"/></svg>',   // (a power sign: the app's Quit)
     all: '<svg class="sg" viewBox="0 0 20 20"><rect x="2" y="2" width="7" height="7" fill="#1d3fd8"/><rect x="11" y="2" width="7" height="7" fill="#f59a1c"/><rect x="2" y="11" width="7" height="7" fill="#2f8f3a"/><rect x="11" y="11" width="7" height="7" fill="#d81818"/></svg>'
   };
   // the More ports menu at the top right: this port and the others. The others' icons are inline: this page is
@@ -211,6 +212,9 @@
   #setup .steps li:first-child { border-top: 0; }
   #setup .steps .n { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font: 700 1rem/1 inherit; color: #070a16; background: var(--yel); }
   #setup .steps li.off .n { background: var(--dim); }
+  #setup .steps li.done .n { background: #3ecf6a; font-size: 1.15rem; }   /* (your game is in: a tick for its number) */
+  #setup .steps .pick { display: flex; flex-direction: column; gap: 8px; margin-left: auto; }
+  #setup .steps .pick .btn { justify-content: center; }
   #setup .steps .t { flex: 1; min-width: 0; }
   #setup .steps .t b { display: block; color: var(--ink); font-size: 1rem; }
   #setup .steps .t small { display: block; margin-top: 3px; color: var(--muted); font-size: .8rem; line-height: 1.4; }
@@ -304,7 +308,7 @@
       <span class="or">or</span>
       <div class="way">
       <span class="info"><button class="btn alt" aria-expanded="false"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M3 13v3.5h14V13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Download for desktop</button>
-        <div class="pop dl"><h2>Desktop app</h2><ul><li><a href="https://github.com/mr-finster/stunts-hd/releases/latest/download/Stunts-HD-mac-universal.zip"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M3 13v3.5h14V13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>macOS <small>Apple Silicon and Intel</small></a></li><li><a href="https://github.com/mr-finster/stunts-hd/releases/latest/download/Stunts-HD-win-x64.zip"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M3 13v3.5h14V13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Windows <small>x64</small></a></li><li><a href="https://github.com/mr-finster/stunts-hd/releases/latest/download/Stunts-HD-win-arm64.zip"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M3 13v3.5h14V13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Windows <small>ARM</small></a></li><li><a href="https://github.com/mr-finster/stunts-hd/releases/latest/download/Stunts-HD-linux-x86_64.AppImage"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M3 13v3.5h14V13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Linux <small>x64 AppImage</small></a></li><li><a href="https://github.com/mr-finster/stunts-hd/releases/latest/download/Stunts-HD-linux-arm64.AppImage"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M3 13v3.5h14V13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Linux <small>ARM AppImage</small></a></li></ul><p style="margin-top:.7rem"><small>Needs your own Stunts 1.1, as here. <a href="https://github.com/mr-finster/stunts-hd/releases/latest" target="_blank" rel="noopener">Release notes</a></small></p></div></span>
+        <div class="pop dl"><h2>Desktop app</h2><ul><li><a href="https://github.com/mr-finster/stunts-hd/releases/latest/download/Stunts-HD-mac-universal.zip"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M3 13v3.5h14V13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>macOS <small>Apple Silicon and Intel</small></a></li><li><a href="https://github.com/mr-finster/stunts-hd/releases/latest/download/Stunts-HD-win-x64.zip"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M3 13v3.5h14V13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Windows <small>x64</small></a></li><li><a href="https://github.com/mr-finster/stunts-hd/releases/latest/download/Stunts-HD-win-arm64.zip"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M3 13v3.5h14V13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Windows <small>ARM</small></a></li><li><a href="https://github.com/mr-finster/stunts-hd/releases/latest/download/Stunts-HD-linux-x86_64.AppImage"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M3 13v3.5h14V13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Linux / Steam Deck <small>x64 AppImage</small></a></li><li><a href="https://github.com/mr-finster/stunts-hd/releases/latest/download/Stunts-HD-linux-arm64.AppImage"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M3 13v3.5h14V13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Linux <small>ARM AppImage</small></a></li></ul><p style="margin-top:.7rem"><small>Needs your own Stunts 1.1, as here. <a href="https://github.com/mr-finster/stunts-hd/releases/latest" target="_blank" rel="noopener">Release notes</a></small></p></div></span>
         <small class="cap">App for macOS, Windows and Linux</small>
       </div>
       </div>
@@ -313,7 +317,7 @@
     <input type="file" id="su-file" accept=".zip,application/zip" multiple>
     <div class="status" id="su-status"></div>
     <ol class="steps" id="su-steps">
-      <li><span class="n">1</span><span class="t"><b>Open your Stunts folder</b><small>Your copy of Stunts 1.1: its folder, or a zip of it. It's read here, never uploaded.</small></span></li>
+      <li><span class="n">1</span><span class="t"><b>Open your Stunts folder or zip</b><small>Your copy of Stunts 1.1. It's read here, never uploaded.</small></span><span class="pick"></span></li>
       <li class="off"><span class="n">2</span><span class="t"><b>Play</b><small id="su-mine">Once your game is in.</small>
         <label><input type="checkbox" id="su-full">Fullscreen</label><label><input type="checkbox" id="su-skip">Skip this screen next time</label></span></li>
     </ol>
@@ -385,11 +389,16 @@
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.log}Changelog</button>
         <div class="pop">
           <h2>Changelog</h2>
-          <p><b>v1.5</b> &middot; Oct 11 2026</p>
+          <p><b>v1.5.1</b> &middot; Oct 11 2026</p>
           <ul>
+            <li>Desktop app: pick your game as a folder or a zip (on Windows, Linux and the Steam Deck the one dialog only showed folders).</li>
+            <li>A tick once your game is in; fullscreen and skip-this-screen on to start with.</li>
+            <li>A Quit button, and quitting the game to DOS closes the app (it started the game again).</li>
+          </ul>
+          <details><summary>v1.5 &middot; Oct 11 2026</summary><ul>
             <li>Download for desktop: a button beside Play in your browser, for macOS, Windows and Linux.</li>
             <li>The desktop app has its own simple front page: open your Stunts folder, then play. It can go fullscreen and skip that page next time.</li>
-          </ul>
+          </ul></details>
           <details><summary>v1.4.1 &middot; Oct 11 2026</summary><ul>
             <li>Desktop app: one Mac download that runs at full speed on Apple Silicon and Intel (the Intel-only one crawled on Apple Silicon Macs).</li>
             <li>The app has its own icon on every system.</li>
@@ -447,27 +456,34 @@
     const start = el.querySelector('#su-start'), up = el.querySelector('.cta label.btn'), again = el.querySelector('.cta .again');
     // (in the desktop app: the system's own dialog for your Stunts folder or zip, in place of the browser button)
     const open = el.querySelector('#su-open'), host = root.stuntsHost;
-    if (host) { open.hidden = false; up.hidden = true; open.onclick = async () => { const list = await host.pickGame(); if (list) take(list.map(f => new File([f.data], f.name))); }; again.onclick = e => { e.preventDefault(); open.onclick(); }; }
+    const pickBy = kind => async () => { const list = await host.pickGame(kind); if (list) take(list.map(f => new File([f.data], f.name))); };
+    if (host) { open.hidden = false; up.hidden = true; open.onclick = pickBy('folder'); again.onclick = e => { e.preventDefault(); open.onclick(); }; }
     // the desktop app's own front page (see the CSS): your game in a line, its two options (kept in this app's storage:
     // index.html reads them at the next start), About with the links the page leaves out, and its own wording
     if (host) {
       el.classList.add('app');
       tv.pause(); tv.removeAttribute('src');
       const li = el.querySelectorAll('#su-steps li');
-      li[0].appendChild(open); li[1].appendChild(start); start.hidden = false;
+      // (step 1: a folder or a zip, a button each: Windows' and Linux's dialogs pick one kind or the other)
+      const zip = open.cloneNode(true); zip.id = 'su-zip'; zip.classList.add('alt'); zip.onclick = pickBy('zip');
+      zip.innerHTML = zip.innerHTML.replace(/<path[^>]*>/, '<path d="M5 2.5h7l3.5 3.5v11.5H5zM9 4.5h2M9 7h2M9 9.5h2M8.5 12h3v3h-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>');
+      li[0].querySelector('.pick').append(open, zip); li[1].appendChild(start); start.hidden = false;
+      open.lastChild.textContent = 'Folder'; zip.lastChild.textContent = 'Zip';
       for (const i of el.querySelectorAll('.more .info')) if (/Keys/.test(i.firstElementChild.textContent)) i.classList.add('keep');
       for (const k of ['full', 'skip']) {
         const box = el.querySelector('#su-' + k);
-        try { box.checked = localStorage.getItem('stunts-app-' + k) === '1'; } catch (_) {}
+        box.checked = true; try { box.checked = localStorage.getItem('stunts-app-' + k) !== '0'; } catch (_) {}   // (both on unless turned off)
         box.onchange = () => { try { localStorage.setItem('stunts-app-' + k, box.checked ? '1' : '0'); } catch (_) {} };
       }
-      el.querySelector('#su-skip').parentElement.title = 'The Welcome Screen item in the Game menu brings this screen back';
+      el.querySelector('#su-skip').parentElement.title = 'Ctrl+Shift+H (the Welcome Screen item in the Game menu) brings this screen back';
       const ab = document.createElement('span'); ab.className = 'info keep';
       ab.innerHTML = `<button class="lnk" aria-expanded="false">${SIGN.log}About</button><div class="pop"><h2>About</h2>`
         + '<p><b>Stunts HD <span id="su-version"></span></b>: Stunts / 4D Sports Driving (1990), recompiled and redrawn in HD. Your own copy of the game is needed: none of it is included.</p>'
         + '<p>Open source (MIT): <a href="https://github.com/mr-finster/stunts-hd" target="_blank" rel="noopener">github.com/mr-finster/stunts-hd</a><br>Play in the browser: <a href="https://stunts-recomp.pages.dev/" target="_blank" rel="noopener">stunts-recomp.pages.dev</a><br>Like it? <a href="https://buymeacoffee.com/mrfinster" target="_blank" rel="noopener">Buy me a coffee</a></p>'
         + '<p>Built on the Restunts project\'s reverse engineering. three.js (MIT).</p></div>';
       el.querySelector('nav.more').appendChild(ab);
+      const qt = document.createElement('span'); qt.className = 'info keep'; qt.innerHTML = `<button class="lnk">${SIGN.quit}Quit</button>`;
+      qt.firstChild.onclick = () => host.quit(); el.querySelector('nav.more').appendChild(qt);
       host.version().then(v => { const e = el.querySelector('#su-version'); if (e) e.textContent = v; }).catch(() => {});
     }
     // (your copy in a line: its tracks, and the cars it adds to the game's eleven)
@@ -479,8 +495,8 @@
     const armed = files => {
       up.hidden = true; open.hidden = true; start.hidden = false; again.hidden = false;
       el.classList.add('armed'); el.querySelector('#su-mine').innerHTML = mine(files);
-      if (host) { start.innerHTML = start.innerHTML.replace('Start game', 'Play'); open.hidden = false; again.hidden = true; el.querySelectorAll('#su-steps li')[1].classList.remove('off'); open.lastChild.textContent = 'Change'; }
-      start.onclick = () => { if (host) { let f = false; try { f = localStorage.getItem('stunts-app-full') === '1'; } catch (_) {} if (f) host.fullscreen(true); } if (closeWatch) closeWatch(); tv.pause(); if (tvUrl) URL.revokeObjectURL(tvUrl); el.remove(); st.remove(); onReady(files); };
+      if (host) { start.innerHTML = start.innerHTML.replace('Start game', 'Play'); open.hidden = false; again.hidden = true; const li = el.querySelectorAll('#su-steps li'); li[1].classList.remove('off'); li[0].classList.add('done'); li[0].querySelector('.n').textContent = '\u2713'; }
+      start.onclick = () => { if (host) { let f = true; try { f = localStorage.getItem('stunts-app-full') !== '0'; } catch (_) {} if (f) host.fullscreen(true); } if (closeWatch) closeWatch(); tv.pause(); if (tvUrl) URL.revokeObjectURL(tvUrl); el.remove(); st.remove(); onReady(files); };
     };
     if (ready) armed(ready);
     // (a hint at which copy it was, when the program is not the one this page knows: 4D Sports Driving, the game's

@@ -14,6 +14,20 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'applic
   '.jpg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.mp4': 'video/mp4', '.woff2': 'font/woff2', '.ttf': 'font/ttf' };
 const ISOLATED = { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp', 'Cross-Origin-Resource-Policy': 'same-origin' };
 
+// Steam's Game Mode (gamescope, on the Steam Deck): the window never showed, only Steam's loading logo. What Electron apps
+// there commonly need: X11 (gamescope's Xwayland), and no Chromium sandbox (an AppImage can't set up its helper there).
+// Only there: desktop mode and other systems keep the sandbox.
+const GAMESCOPE = process.platform === 'linux' && !!(process.env.GAMESCOPE_WAYLAND_DISPLAY || process.env.SteamDeck === '1' || process.env.SteamGameId);
+if (GAMESCOPE) { app.commandLine.appendSwitch('no-sandbox'); app.commandLine.appendSwitch('ozone-platform', 'x11'); }
+
+// a log of the start, kept beside the app's settings (log.txt, new each start): for a start that fails where it can't be watched
+let logF = null;
+const log = (...a) => { try { if (!logF) { logF = path.join(app.getPath('userData'), 'log.txt'); fs.mkdirSync(path.dirname(logF), { recursive: true }); fs.writeFileSync(logF, ''); }
+  fs.appendFileSync(logF, new Date().toISOString() + ' ' + a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ') + '\n'); } catch (_) {} };
+log('start', app.getVersion(), process.platform, process.arch, 'electron', process.versions.electron, { gamescope: GAMESCOPE, steamDeck: process.env.SteamDeck || null, wayland: !!process.env.WAYLAND_DISPLAY, display: process.env.DISPLAY || null });
+app.on('child-process-gone', (e, d) => log('child process gone', d));
+process.on('uncaughtException', err => log('error', String(err && err.stack || err)));
+
 protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
 
 const args = process.argv.slice(app.isPackaged ? 1 : 2);
@@ -34,13 +48,13 @@ function readGame(p) {
   return out;
 }
 
-ipcMain.handle('pick-game', async e => {
+// (a folder or a zip, as asked: on Windows and Linux one dialog can't pick either, it showed folders only)
+ipcMain.handle('pick-game', async (e, kind) => {
   if (selftest) return readGame(selftest);
-  const win = BrowserWindow.fromWebContents(e.sender);
-  const r = await dialog.showOpenDialog(win, {
-    title: 'Open your Stunts folder', buttonLabel: 'Open',
-    properties: ['openDirectory', 'openFile'], filters: [{ name: 'Stunts folder or zip', extensions: ['zip'] }],
-  });
+  const win = BrowserWindow.fromWebContents(e.sender), zip = kind === 'zip';
+  const r = await dialog.showOpenDialog(win, zip
+    ? { title: 'Open your Stunts zip', buttonLabel: 'Open', properties: ['openFile'], filters: [{ name: 'Stunts zip', extensions: ['zip'] }] }
+    : { title: 'Open your Stunts folder', buttonLabel: 'Open', properties: ['openDirectory'] });
   return r.canceled || !r.filePaths.length ? null : readGame(r.filePaths[0]);
 });
 
@@ -65,7 +79,7 @@ function serve() {
     const f = path.normalize(path.join(SITE, p));
     if (p === '/stunts/map.json' && !fs.existsSync(f)) {
       try { return new Response(await mapJson(), { headers: Object.assign({ 'Content-Type': 'application/json' }, ISOLATED) }); }
-      catch (e) { return new Response('map.json could not be fetched: connect to the internet once, then start again', { status: 503 }); }
+      catch (e) { log('map.json fetch failed', String(e)); return new Response('map.json could not be fetched: connect to the internet once, then start again', { status: 503 }); }
     }
     if (!f.startsWith(SITE + path.sep) || !fs.existsSync(f) || !fs.statSync(f).isFile()) return new Response('Not found', { status: 404 });
     return new Response(fs.readFileSync(f), { headers: Object.assign({ 'Content-Type': TYPES[path.extname(f).toLowerCase()] || 'application/octet-stream' }, ISOLATED) });
@@ -83,6 +97,7 @@ function keepBounds(win) {
 
 // what the page may ask of the app besides your game's files: its version, and the window fullscreen or not
 ipcMain.handle('version', () => app.getVersion());
+ipcMain.handle('quit', () => app.quit());   // (the front page's Quit, and the game's own exit to DOS)
 ipcMain.handle('fullscreen', (e, on) => { const w = BrowserWindow.fromWebContents(e.sender); if (w) w.setFullScreen(!!on); });
 
 function about(win) {
@@ -112,7 +127,8 @@ function menu(win) {
 function open() {
   const b = lastBounds();
   const win = new BrowserWindow({
-    width: b.width || 1280, height: b.height || 800, x: b.x, y: b.y, fullscreen: !!b.full && !selftest,
+    // (in Game Mode: no remembered place or fullscreen at the start, which gamescope does itself)
+    width: b.width || 1280, height: b.height || 800, x: GAMESCOPE ? undefined : b.x, y: GAMESCOPE ? undefined : b.y, fullscreen: !!b.full && !selftest && !GAMESCOPE,
     minWidth: 640, minHeight: 400, backgroundColor: '#04061a', title: 'Stunts HD', show: !selftest,
     autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true, backgroundThrottling: false },
@@ -121,7 +137,13 @@ function open() {
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('app://')) { e.preventDefault(); shell.openExternal(url); } });
   keepBounds(win); menu(win);
-  win.loadURL('app://stunts/stunts/');
+  win.once('ready-to-show', () => log('window ready'));
+  win.webContents.on('did-finish-load', () => log('page loaded', win.webContents.getURL()));
+  win.webContents.on('did-fail-load', (e, code, desc, url) => log('page failed', code, desc, url));
+  win.webContents.on('render-process-gone', (e, d) => log('page process gone', d));
+  win.webContents.on('console-message', (e, level, msg) => { if (level >= 2) log('page', msg.slice(0, 400)); });
+  app.getGPUInfo('basic').then(g => log('gpu', g.gpuDevice || g)).catch(() => {});
+  win.loadURL('app://stunts/stunts/' + (selftest ? '?welcome' : ''));   // (the selftest: always the front page, whatever its Skip says)
   if (selftest) runSelftest(win);
 }
 

@@ -101,7 +101,7 @@ worker.onmessage = e => {
   if (m.type === 'delete') { try { localStorage.removeItem('stunts:' + m.name); } catch (_) {} delete saved[m.name]; }
   if (m.type === 'error') { const el = document.getElementById('err'); el.hidden = false; el.textContent = m.message; }
   if (m.type === 'fatal') { try { sessionStorage.setItem('stunts-stopped', m.text); } catch (_) {} }   // (said on the welcome page after the reload)
-  if (m.type === 'exit') location.reload();
+  if (m.type === 'exit') { if (window.stuntsHost && stuntsHost.quit) stuntsHost.quit(); else location.reload(); }   // (the game's exit to DOS: in the app, the app closes; on the site, the game starts again)
   if (m.type === 'editor') document.getElementById('terrain').hidden = !m.on;
   if (m.type === 'files') window.stockNames = new Set(m.names);
   if (m.type === 'font') { hud.def = m.def; hud.led = m.led; }
@@ -131,6 +131,8 @@ const NOHUD = /[?&]nohud/.test(location.search);
 const ogFlag = new SharedArrayBuffer(16), ogI = new Int32Array(ogFlag);   // ([0] the look (OG), [1] > 0 while the game reads typed text: a high-score name, a save name)
 const typing = () => Atomics.load(ogI, 1) > 0;
 let OG_MODE = false; try { OG_MODE = localStorage.getItem('stunts-og') === '1'; } catch (_) {}
+const LIGHT = /[?&]light\b/.test(location.search);   // (the baked light, L: being tried out, only with ?light for now)
+if (view && LIGHT) try { view.giOn = localStorage.getItem('stunts-light') === '1'; } catch (_) {}
 Atomics.store(ogI, 0, OG_MODE ? 1 : 0);   // (no race clock and speed: recording)
 const DEBUG = /[?&]debug/.test(location.search);   // original renderer kept, shown half-transparent over the high-res one
 if (DEBUG) canvas.style.opacity = 0.5;
@@ -180,6 +182,11 @@ function key(e, down) {
   if (!typing() && e.code === 'KeyG' && HIRES && view && view.ghostAvail && mem[(StuntsCode.DSEG << 4) + StuntsCode.SYM.game_replay_mode] === 0) {   // (G: the ghost car on or off, when there is one, not in a replay; no key of the game's in a race)
     e.preventDefault();
     if (down && !e.repeat) { view.ghostOn = !view.ghostOn; hud.drawn = null; try { localStorage.setItem('stunts-ghost-on', view.ghostOn ? '1' : '0'); } catch (_) {} }
+    return;
+  }
+  if (!typing() && e.code === 'KeyL' && LIGHT && HIRES && view && !OG_MODE) {   // (L: the baked light on or off, in the HD look; no key of the game's in a race)
+    e.preventDefault();
+    if (down && !e.repeat) { view.giOn = !view.giOn; hud.drawn = null; try { localStorage.setItem('stunts-light', view.giOn ? '1' : '0'); } catch (_) {} }
     return;
   }
   if (!typing() && e.code === 'KeyH' && HIRES) {   // (H: no key of the game's)
@@ -260,12 +267,13 @@ function drawHud(t, race, shown) {
     // outside a race: only the look's key, and only while the HD picture is on screen (car select, the track menu's
     // overview, a paused race), where pressing it changes what is seen; not on the flat menus
     if (!hud.def || !view || !shown || document.getElementById('setup')) { hc.hidden = true; hud.drawn = null; return; }
-    const mk = 'menu|' + OG_MODE + '|' + hc.width + '|' + hc.height;
+    const mk = 'menu|' + OG_MODE + '|' + view.giOn + '|' + hc.width + '|' + hc.height;
     hc.hidden = false; if (hud.drawn === mk) return; hud.drawn = mk;
     const c = hc.getContext('2d'), H = hc.height, small = Math.max(1, Math.max(1, H / 340) * 0.75), m = Math.round(H * 0.04);
     c.clearRect(0, 0, hc.width, H);
     const w = hudText(c, hud.def, '(H) HD MODE', m, m + 8 * small, small, 'left', 0.75);
     hudText(c, hud.def, OG_MODE ? 'OFF' : 'ON', m + w + 12 * small, m + 8 * small, small, 'left', 1, 0, '255,247,33');
+    if (LIGHT && !OG_MODE && view.giAvail !== false) { const w2 = hudText(c, hud.def, '(L) LIGHTING', m, m + 19 * small, small, 'left', 0.75); hudText(c, hud.def, view.giOn ? 'BAKED' : 'BASIC', m + w2 + 12 * small, m + 19 * small, small, 'left', 1, 0, '255,247,33'); }
     return;
   }
   const rw = a => mem[a] | mem[a + 1] << 8;
@@ -285,7 +293,7 @@ function drawHud(t, race, shown) {
   // the game's own "Wrong Way" (state+0x45D = 3, set whenever you drive against the track) is drawn by the game only in the
   // in-car view; in the others the page shows it, flashing
   const wrong = mem[D + Sy.state + 0x45D] === 3 && d.cam !== 0 && (t % 800) < 500;
-  const time = mm + ':' + (ss < 10 ? '0' : '') + ss.toFixed(2), key = time + '|' + wrong + '|' + OG_MODE + '|' + d.mph + '|' + d.cam + '|' + hc.width + '|' + track + '|' + gear + '|' + best + '|' + (view.ghostAvail ? view.ghostOn : 'x');
+  const time = mm + ':' + (ss < 10 ? '0' : '') + ss.toFixed(2), key = time + '|' + wrong + '|' + OG_MODE + '|' + view.giOn + '|' + d.mph + '|' + d.cam + '|' + hc.width + '|' + track + '|' + gear + '|' + best + '|' + (view.ghostAvail ? view.ghostOn : 'x');
   if (hud.drawn === key) return; hud.drawn = key;
   // (u: one pixel of the font for the labels; the numbers larger. All in proportion to the picture's height, in
   // between whole pixels too: the text shrinks with a smaller window, down to the font's own size)
@@ -299,6 +307,7 @@ function drawHud(t, race, shown) {
   const setting = (label, value) => { const w = hudText(c, hud.def, label, m, ly, small, 'left', 0.75); hudText(c, hud.def, value, m + w + 12 * small, ly, small, 'left', 1, 0, '255,247,33'); ly += 11 * small; };
   if (CAMS[d.cam]) setting('(C) CAM', CAMS[d.cam]);
   setting('(H) HD MODE', OG_MODE ? 'OFF' : 'ON');
+  if (LIGHT && !OG_MODE && view.giAvail !== false) setting('(L) LIGHTING', view.giOn ? 'BAKED' : 'BASIC');
   // bottom left: the time, its label above, the track's best under it
   // (the ghost's key goes under the best time, when there is a ghost: a lap you finished on this very track)
   const showGhost = view.ghostAvail, gl = showGhost ? 11 * small : 0;
