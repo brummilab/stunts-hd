@@ -213,6 +213,17 @@ void main() {
       ] : null;
       this.aoPass = !OG && root.StuntsAO && !/[?&]noao/.test(root.location.search) ? new root.StuntsAO(r) : null;
       this.seq = -1; this.lastFrame = 0;
+      this.prewarm();
+    }
+
+    // Every shader compiled up front, while the game loads, and again once a track's shapes are in: compiled at
+    // first use instead, each new kind of thing on screen (a menu's car, a track) stalled a frame, a long one on
+    // slower GPUs (the Steam Deck), and a palette fade caught in the stall showed a frame of wrong colours
+    prewarm() {
+      const t0 = performance.now();
+      for (const [sc, cam] of [[this.scene, this.cam], [this.domeScene, this.cam], [this.skyScene, this.skyCam], [this.bandScene, this.skyCam], [this.stripScene, this.skyCam]])
+        if (sc && cam) try { this.r.compile(sc, cam); } catch (_) {}
+      this.prewarmMs = (this.prewarmMs || 0) + Math.round(performance.now() - t0);
     }
 
     // static track meshes, one instanced mesh per (shape, paint job)
@@ -319,7 +330,7 @@ void main() {
         im.instanceMatrix.needsUpdate = true;
         this.statics.add(im);
       }
-      this.hidden = []; this.giDirty = true;
+      this.hidden = []; this.giDirty = true; this.warmWorld = true;
     }
 
     // Baked light (L), at the first frame it is wanted after a track is built: the track lit by the whole sky, seen from
@@ -336,7 +347,7 @@ void main() {
       let ytop = 0; for (const im of this.statics.children) { const g = im.geometry; if (!g.boundingBox) g.computeBoundingBox();
         for (const e of im.userData.inst || []) ytop = Math.max(ytop, e[1] + g.boundingBox.max.y); }
       const lo = new T.Vector3(mb.x0, -64, mb.z0), size = new T.Vector3(mb.x1 - mb.x0, Math.min(ytop, 6000) + 400, mb.z1 - mb.z0);
-      const NX = Math.min(384, Math.ceil(size.x / 80)), NZ = Math.min(384, Math.ceil(size.z / 80)), NY = 32, TX = 8, TY = 4;
+      const NX = Math.min(480, Math.ceil(size.x / 64)), NZ = Math.min(480, Math.ceil(size.z / 64)), NY = 40, TX = 8, TY = 5;
       const N = 64, DM = 1024;
       if (!this.giRT || this.giRT.width !== NX * TX || this.giRT.height !== NZ * TY) {
         if (this.giRT) this.giRT.dispose();
@@ -378,6 +389,9 @@ void main() {
       // (the scene with only the track in it: everything else hidden for the bake, put back after)
       const vis = this.scene.children.map(c => c.visible), prevT = r.getRenderTarget(), sm = r.shadowMap.autoUpdate, ac = r.autoClear, cc = r.getClearColor(new T.Color()), ca = r.getClearAlpha();
       for (const c of this.scene.children) c.visible = c === this.statics;
+      // (and not the clouds: scenery shapes too, up in the sky, they darkened everything under them)
+      const clouds = this.statics.children.filter(im => im.visible && im.userData.hi != null && this.isCloud({ ptr: im.userData.hi, paint: Math.max(0, im.userData.paint) }));
+      for (const im of clouds) im.visible = false;
       const fog = this.scene.fog; this.scene.fog = null; this.scene.overrideMaterial = this.giOver; r.shadowMap.autoUpdate = false;
       const ctr = lo.clone().addScaledVector(size, 0.5), R = size.length() * 0.5 + 200;
       const cam = new T.OrthographicCamera(-R, R, R, -R, 1, R * 2 + 400);
@@ -392,12 +406,14 @@ void main() {
         U.vp.value.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse); U.w.value = 1 / N; U.down.value = i ? 0 : 1; U.depthSpan.value = cam.far - cam.near;
         r.setRenderTarget(this.giRT); r.autoClear = false; r.render(this.giQS, this.giQC);
       }
+      for (const im of clouds) im.visible = true;
       this.scene.overrideMaterial = null; this.scene.fog = fog; this.scene.children.forEach((c, k) => { c.visible = vis[k]; });
       r.shadowMap.autoUpdate = sm; r.autoClear = ac; r.setClearColor(cc, ca); r.setRenderTarget(prevT);
       GI_U.tGI.value = this.giRT.texture; GI_U.giMin.value.copy(lo); GI_U.giSize.value.copy(size); GI_U.giRes.value.set(NX, NY, NZ); GI_U.giTiles.value.set(TX, TY);
       this.giAvail = true; this.giMs = Math.round(performance.now() - t0);
     }
     giFrame() {
+      if (this.warmWorld) { this.warmWorld = false; this.prewarm(); }   // (the track's own shapes' shaders, before its first frame)
       if (root.location && /[?&]gidebug=(\d)/.test(root.location.search)) GI_U.giDbg.value = +/[?&]gidebug=(\d)/.exec(root.location.search)[1];
       if (this.giOn && this.giDirty && this.statics.children.length) this.bakeGI();
       GI_U.giOn.value = this.giOn && this.giAvail && !this.giDirty ? 1 : 0;
@@ -1249,7 +1265,9 @@ void main() {
       if (race) focus = this.camPos.clone().addScaledVector(fwd.setY(0).normalize(), 4500);   // (the shadows reach further ahead: they came into view, fading in, closer than the scenery)
       else { focus = new T.Vector3(); for (const o of cars) focus.add(new T.Vector3(o.Wm[3], o.Wm[7], o.Wm[11])); focus.divideScalar(Math.max(1, cars.length)); }
       // (car select: mostly overhead the turntable, a little from the left and the front)
-      const sunDir = race || !this.stageUp ? new T.Vector3(-0.36, 0.84, 0.4).normalize()
+      // (the baked light's mode: the sun lower, about 30 degrees up (?sunel=), its shadows near three times as long)
+      const low = race && this.giOn && this.giAvail !== false, el = +((/[?&]sunel=([\d.]+)/.exec(root.location.search) || [])[1] || 30);
+      const sunDir = low ? new T.Vector3(-0.36, 0.538 * Math.tan(el * Math.PI / 180), 0.4).normalize() : race || !this.stageUp ? new T.Vector3(-0.36, 0.84, 0.4).normalize()
         : this.stageUp.clone().multiplyScalar(0.9).add(new T.Vector3(-0.38, 0, 0.22)).normalize();
       const ext = race ? 7000 : Math.ceil((this.stageR || 900) * 1.1), sc = this.sun.shadow.camera;
       // (a race: faded out by 7000 from the camera, inside the map's own edge fade everywhere in view, even along the picture's
@@ -1266,6 +1284,7 @@ void main() {
       this.sun.target.position.copy(focus); this.sun.position.copy(focus).addScaledVector(sunDir, 3 * ext);
       if (sc.right !== ext) { sc.left = sc.bottom = -ext; sc.right = sc.top = ext; sc.near = ext * 1.2; sc.far = ext * 4.8; sc.updateProjectionMatrix(); }
       SH_RANGE.value = sc.far - sc.near;
+      GI_U.giSoft.value = low ? 1 : 0; GI_U.giTexW.value = 2 * ext / this.sun.shadow.mapSize.x;
       this.sun.target.updateMatrixWorld(); this.sun.updateMatrixWorld();
       if (this.carSuns && !this.ogHide) { this.carSunsAt(race, cars, ease, sunDir); this.nearSunAt(race, fwd, sunDir); }
       this.explosions(now, race, camWorld);
@@ -1303,7 +1322,10 @@ void main() {
       if (this.stripOn) this.r.render(this.stripScene, this.skyCam);
       this.giFrame();
       this.r.render(this.scene, this.cam);
-      if (race && this.aoPass) this.aoPass.render(this.scene, this.cam, [this.dynShadow.mesh, this.dynCar.mesh, this.cloudDyn.mesh, this.bgDyn.mesh, this.stage].concat(this.grass ? this.grass.map(g => g.mesh) : [], this.blobs || []));
+      // (the baked light's fine detail, while it is on: the screen's own ambient occlusion over it, for what the volume is
+      // too coarse to see: a tree's foot, a kerb, the eaves of a roof)
+      const giAO = GI_U.giOn.value > 0.5 && root.StuntsAO ? this.giAO || (this.giAO = new root.StuntsAO(this.r, { radius: +((/[?&]aor=([\d.]+)/.exec(root.location.search) || [])[1] || 16), strength: 0.55 })) : null;
+      if (race && (this.aoPass || giAO)) (this.aoPass || giAO).render(this.scene, this.cam, [this.dynShadow.mesh, this.dynCar.mesh, this.cloudDyn.mesh, this.bgDyn.mesh, this.stage].concat(this.grass ? this.grass.map(g => g.mesh) : [], this.blobs || []));
       if (race) this.opaque();
       return true;
     }
@@ -1468,7 +1490,22 @@ void main() {
       const X = this.marks || (this.marks = (() => {
         const g = new T.BufferGeometry();
         g.setAttribute('position', new T.BufferAttribute(new Float32Array(MARKS * 18), 3).setUsage(T.DynamicDrawUsage));
-        const mesh = new T.Mesh(g, new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4, side: T.DoubleSide }));
+        // (each mark one rank over the surface it lies on, through the same depth bias as that surface: the ground is drawn
+        // well behind everything on it, so a mark at its true depth showed through what should hide it)
+        g.setAttribute('rank', new T.BufferAttribute(new Float32Array(MARKS * 6), 1).setUsage(T.DynamicDrawUsage));
+        // (and each pixel darkened once, however many marks overlap there (the stencil marks it): where the front and rear wheels
+        // ran in one groove, or short segments met, the marks were darker, first off the road most of all)
+        const mm = new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false, side: T.DoubleSide,
+          stencilWrite: true, stencilRef: 2, stencilFunc: T.NotEqualStencilFunc, stencilZPass: T.ReplaceStencilOp, stencilFail: T.KeepStencilOp, stencilZFail: T.KeepStencilOp });   // (2: the car footprint uses 1)
+        mm.onBeforeCompile = sh => {
+          sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float rank; varying float vRank;').replace('#include <logdepthbuf_vertex>', '#include <logdepthbuf_vertex>\nvRank = rank;');
+          sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vRank;').replace('#include <logdepthbuf_fragment>', `#include <logdepthbuf_fragment>
+#if defined( USE_LOGDEPTHBUF ) && defined( USE_LOGDEPTHBUF_EXT )
+{ float d0 = gl_FragDepthEXT, rk = floor((vRank + 0.5) / ${RANKS}.0), ti = vRank - rk * ${RANKS}.0; gl_FragDepthEXT = d0 - rk * (0.6 * fwidth(d0) + 1e-5) - ti * ${TIE_D}; }
+#endif`);
+        };
+        mm.customProgramCacheKey = () => 'marks';
+        const mesh = new T.Mesh(g, mm);
         mesh.frustumCulled = false; mesh.renderOrder = 2; this.scene.add(mesh);
         return { g, mesh, n: 0, head: 0, last: new Map() };
       })());
@@ -1491,7 +1528,8 @@ void main() {
         if (hit.instanceId != null) { const im = new T.Matrix4(); hit.object.getMatrixAt(hit.instanceId, im); n.copy(hit.face.normal).applyMatrix3(nM.getNormalMatrix(im)); }
         n.normalize(); if (n.y < 0) n.negate();
         if (n.y < 0.35) return null;   // (a wall, not ground)
-        return { p: hit.point.clone().addScaledVector(n, 0.5), s: side.clone().addScaledVector(n, -side.dot(n)) };
+        const ra = hit.object.geometry.getAttribute('rank'), rank = (ra && hit.face ? ra.getX(hit.face.a) : 0) + 1;
+        return { p: hit.point.clone().addScaledVector(n, 0.2), s: side.clone().addScaledVector(n, -side.dot(n)), rank };
       };
       let added = false;
       // (each car's wheels from its full shape, wherever it is: far off the game draws a car's low-detail shape, which has
@@ -1505,12 +1543,19 @@ void main() {
         const M = o ? ease(o) : c && q ? c.map((v, k) => q[k] + (v - q[k]) * this.easeA) : c;   // (not drawn: eased between frames as a drawn car is)
         if (!M) continue;
         const sh = this.shape(this.rw(this.S.trkObjectList + ci * 14 + 4), o ? o.paint : this.mem[D + gcf + (ci === 2 ? 4 : 11)]);
+        // (which of the game's four wheels each drawn one is: the nearest of the game's own wheel places, car_whlWorldCrds1
+        // at +0x74, whose order car_surfaceWhl at +0xC2 follows; guessed from the shape's sides, one wheel on the grass
+        // marked the one on the road)
+        const gw = [0, 1, 2, 3].map(k => { const a = st + 0x74 + k * 6, s16 = v => (v << 16) >> 16; return [s16(this.rw(a)), s16(this.rw(a + 4))]; });
+        const known = gw.some(v => v[0] || v[1]);
         for (const p of sh.prims) {
           if (!p.wheelCtr) continue;
-          const c = p.wheelCtr, idx = (p.front ? 0 : 2) + (c[0] < 0 ? 0 : 1), surf = this.mem[D + ((st + 0xC2 + idx) & 0xFFFF)];
-          const key = ci + ':' + idx;
+          const c = p.wheelCtr;
           const x = c[0], y = c[1] - p.wheelR, z = -c[2];
           const w = new T.Vector3(M[0] * x + M[1] * y + M[2] * z + M[3], M[4] * x + M[5] * y + M[6] * z + M[7], M[8] * x + M[9] * y + M[10] * z + M[11]);
+          let idx = (p.front ? 0 : 2) + (c[0] < 0 ? 0 : 1);
+          if (known) { let bd = 1e18; gw.forEach((v, k) => { const d = (v[0] - w.x) ** 2 + (-v[1] - w.z) ** 2; if (d < bd) { bd = d; idx = k; } }); }
+          const surf = this.mem[D + ((st + 0xC2 + idx) & 0xFFFF)], key = ci + ':' + idx;
           const side = new T.Vector3(M[0], M[4], M[8]).normalize().multiplyScalar(Math.min(p.wheelHalf || 4, 8));
           const prev = X.last.get(key);
           if (surf < 2 || surf > 4) { X.last.delete(key); continue; }
@@ -1521,11 +1566,12 @@ void main() {
           const a0 = prev.g.p.clone().sub(prev.g.s), a1 = prev.g.p.clone().add(prev.g.s), b0 = g.p.clone().sub(g.s), b1 = g.p.clone().add(g.s);
           const o9 = X.head * 18;
           [a0, a1, b1, a0, b1, b0].forEach((v, k) => { P[o9 + k * 3] = v.x; P[o9 + k * 3 + 1] = v.y; P[o9 + k * 3 + 2] = v.z; });
+          const RK = X.g.attributes.rank.array, rk = Math.max(prev.g.rank, g.rank); for (let k = 0; k < 6; k++) RK[X.head * 6 + k] = rk;
           X.head = (X.head + 1) % MARKS; X.n = Math.min(MARKS, X.n + 1); added = true;
           X.last.set(key, { p: w, g });
         }
       }
-      if (added) { X.g.attributes.position.needsUpdate = true; X.g.setDrawRange(0, X.n * 6); X.mesh.visible = true; }
+      if (added) { X.g.attributes.position.needsUpdate = true; X.g.attributes.rank.needsUpdate = true; X.g.setDrawRange(0, X.n * 6); X.mesh.visible = true; }
     }
 
     // Contact shadows: under each car a soft oval, darkest right under it and fading out to its edges (the sun
@@ -2143,11 +2189,19 @@ void main() {
           // (a line's widening to its least width on screen kept in the plane too: across it, half the line stood out of the
           // face, past its edge: the Ferrari GTO's roof trim showed as a black sliver over the roof in the car select)
           if (on) for (let k = 0; k < lofs.length; k++) { const v = lofs[k], e = dot(on.plane.n, v); lofs[k] = [v[0] - e * on.plane.n[0], v[1] - e * on.plane.n[1], v[2] - e * on.plane.n[2]]; }
+          // (a car's window: a dark neutral face laid on a body panel, a good share of it. The original drew it a little inside
+          // the panel, a body-coloured rim one or two of its pixels wide; in HD that rim was a thick band, the glass looking
+          // too small: grown out towards the panel's edges, most of the way, a slim frame left)
+          if (on && wheels && poly && tri.length >= 3 && on.tri && on.tri.length >= 9) {
+            const sat = Math.max(...c) - Math.min(...c), bv = [];
+            for (let k = 0; k + 2 < on.tri.length; k += 3) bv.push([on.tri[k], on.tri[k + 1], on.tri[k + 2]]);
+            if (sat < 0.03 && Math.max(...c) < 0.42 && triArea(tri) > 0.15 * triArea(bv)) growInside(tri, bv, GLASS_GROW);
+          }
         } else baseIdx = prims.length;
         if (poly && P.length >= 3 && !P.some(p => !p)) plane = planeOf(P);
         // (a wheel in the original's three colours: its material for the tread, the next one for the tyre's
         // side, the one after for the hub; see preRender_wheel's caller)
-        prims.push({ f3: poly && P.length >= 3 && !P.some(p => !p) ? facePlane(P) : null, cull1: rd(c1a + i * 4), cull2: rd(c2a + i * 4), one: poly && !(pflags & 1) ? 1 : 0, lofs: lofs.length ? new Float32Array(lofs.flat()) : null, wheel: wheel && new Float32Array(wheel), wheelR, wheelPart: wheelPart && new Uint8Array(wheelPart), front: !!(wheelPart && wheelPart.front && wheelPart.centre), wheelCtr: wheelPart && wheelPart.centre, wheelHalf: wheelPart && wheelPart.halfW, phiGame: wheelPart && wheelPart.phi, wheelC: wheel && [c, this.color(mat + 1), this.color(mat + 2)], idx: prims.length, level: !!plane && Math.abs(plane.n[1]) > 0.95, tri: new Float32Array(tri.flat()), c, poly, rank, plane, box: plane && plane.box, pat: c.pat, decal: !!(pflags & 2) });
+        prims.push({ mat, f3: poly && P.length >= 3 && !P.some(p => !p) ? facePlane(P) : null, cull1: rd(c1a + i * 4), cull2: rd(c2a + i * 4), one: poly && !(pflags & 1) ? 1 : 0, lofs: lofs.length ? new Float32Array(lofs.flat()) : null, wheel: wheel && new Float32Array(wheel), wheelR, wheelPart: wheelPart && new Uint8Array(wheelPart), front: !!(wheelPart && wheelPart.front && wheelPart.centre), wheelCtr: wheelPart && wheelPart.centre, wheelHalf: wheelPart && wheelPart.halfW, phiGame: wheelPart && wheelPart.phi, wheelC: wheel && [c, this.color(mat + 1), this.color(mat + 2)], idx: prims.length, level: !!plane && Math.abs(plane.n[1]) > 0.95, tri: new Float32Array(tri.flat()), c, poly, rank, plane, box: plane && plane.box, pat: c.pat, decal: !!(pflags & 2) });
       }
       // a building's one-sided face whose back shows from outside is drawn from both sides: seen from behind it is not
       // drawn, and the sky showed through (the barn's upper roof from below, past the gable it overhangs; through that
@@ -2175,7 +2229,16 @@ void main() {
           const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
           for (let k = 0; k < u.length; k += 3) for (let c = 0; c < 3; c++) { lo[c] = Math.min(lo[c], u[k + c]); hi[c] = Math.max(hi[c], u[k + c]); }
           for (let k = 0; k < t.length && on; k += 3) for (let c = 0; c < 3; c++) if (t[k + c] < lo[c] - 1 || t[k + c] > hi[c] + 1) on = false;
-          if (on) { p.rank = q.rank + 1; break; }
+          if (on) {
+            p.rank = q.rank + 1;
+            // (a window laid this way, no decal flag (the Lancia's rear glass): grown out as one with it is, above)
+            if (wheels && p.c) {
+              const sat = Math.max(...p.c) - Math.min(...p.c), V = a => { const r = []; for (let k = 0; k + 2 < a.length; k += 3) r.push([a[k], a[k + 1], a[k + 2]]); return r; };
+              const pv = V(t), qv = V(u);
+              if (sat < 0.03 && Math.max(...p.c) < 0.42 && triArea(pv) > 0.15 * triArea(qv)) { growInside(pv, qv, GLASS_GROW); p.tri = new Float32Array(pv.flat()); }
+            }
+            break;
+          }
         }
       }
       // a tunnel: see-through faces up over the car, turned down (its roof, a piece of its own over the road): under it
@@ -2216,6 +2279,22 @@ void main() {
         if (!alone) for (const p of tree) p.onPiece = true;   // (a tree on another piece, a traffic island's: it casts too, canopy and trunk, as one alone)
       }
       closeDecalGaps(prims);
+      // a car's glass as faces of its own (most windows: slanted panes, not marks on a panel): their edges stop short of the
+      // body's, slits the original's painting at 320x200 never showed but HD does, the inside of the car and a wheel
+      // through them; each pane spread out in its own plane past its edges, over the body round it
+      if (wheels) for (const p of prims) {
+        if (p.decal || p.wheel || !p.poly || !p.plane || !p.c || !p.tri || p.tri.length < 9) continue;
+        if (Math.max(...p.c) - Math.min(...p.c) >= 0.03 || Math.max(...p.c) >= 0.42) continue;
+        const t = p.tri, n = p.plane.n, c = [0, 0, 0], m = t.length / 3;
+        for (let k = 0; k < t.length; k += 3) for (let i = 0; i < 3; i++) c[i] += t[k + i] / m;
+        let size = 0; for (let k = 0; k < t.length; k += 3) size = Math.max(size, Math.hypot(t[k] - c[0], t[k + 1] - c[1], t[k + 2] - c[2]));
+        const grow = Math.min(2.5, Math.max(1, size * 0.035));   // (enough to close the slits; more and a pane stood out past the body)
+        for (let k = 0; k < t.length; k += 3) {
+          let d = [t[k] - c[0], t[k + 1] - c[1], t[k + 2] - c[2]]; const e = dot(d, n); d = [d[0] - e * n[0], d[1] - e * n[1], d[2] - e * n[2]];
+          const L = Math.hypot(...d); if (L < 1e-6) continue;
+          for (let i = 0; i < 3; i++) t[k + i] += d[i] / L * grow;
+        }
+      }
       // a level one-sided face up off the ground (a tunnel's roof, a deck's underside) is drawn from both sides:
       // the original shows a tunnel's roof only from inside, so from outside it looked roofless
       for (const p of prims) if (p.one && p.level && !p.rank && p.tri.length) { let y = 0; for (let k = 1; k < p.tri.length; k += 3) y += p.tri[k]; if (y / (p.tri.length / 3) > y0 + 100) p.one = 0; }
@@ -2342,7 +2421,7 @@ void main() {
   // the ground's colour, close under a place, lights faces turned away from the sky. The volume's layers sit side by
   // side in one 2D texture (giTiles of them across, down), each giRes.x by giRes.z texels.
   const GI_U = { tGI: { value: null }, giOn: { value: 0 }, giMin: { value: new T.Vector3() }, giSize: { value: new T.Vector3(1, 1, 1) },
-    giRes: { value: new T.Vector3(1, 1, 1) }, giTiles: { value: new T.Vector2(1, 1) }, giAmt: { value: 1 }, giBounce: { value: 0.6 }, giDbg: { value: 0 } };
+    giRes: { value: new T.Vector3(1, 1, 1) }, giTiles: { value: new T.Vector2(1, 1) }, giAmt: { value: 1 }, giBounce: { value: 1.2 }, giDbg: { value: 0 }, giSoft: { value: 0 }, giTexW: { value: 1 } };
   const GI_GLSL = `uniform sampler2D tGI; uniform float giOn; uniform vec3 giMin; uniform vec3 giSize; uniform vec3 giRes; uniform vec2 giTiles; uniform float giAmt; uniform float giBounce; uniform float giDbg;
 vec4 giTap( vec3 p ) {
   vec3 q = ( p - giMin ) / giSize * giRes - 0.5;
@@ -2525,6 +2604,28 @@ vec4 giTap( vec3 p ) {
   // Decals of one colour that make one marking (a sign's arrow: shaft, bend, head) sometimes leave a
   // unit or two between them in the game's data, closed by its low resolution: a corner that close to
   // another such decal is moved onto it (a little past), so the marking is one piece at any resolution.
+  // how far a car's window laid on a panel is grown towards the panel's edges
+  const GLASS_GROW = 0.85;
+  // the area of a triangle list ([v0, v1, v2, ...], each [x, y, z])
+  function triArea(t) { let a = 0; for (let k = 0; k + 2 < t.length; k += 3) { const u = t[k + 1].map((x, i) => x - t[k][i]), w = t[k + 2].map((x, i) => x - t[k][i]); a += Math.hypot(u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]) / 2; } return a; }
+  // a decal's corners moved out from its middle, frac of the way to where that line leaves its base face (both flat on one
+  // plane: the base's triangles tested by barycentric coordinates, the crossing found by halving)
+  function growInside(t, base, frac) {
+    const uniq = new Map(); for (const v of t) uniq.set(v.join(','), v);
+    const vs = [...uniq.values()], c = [0, 1, 2].map(i => vs.reduce((s, v) => s + v[i], 0) / vs.length);
+    const inside = p => { for (let k = 0; k + 2 < base.length; k += 3) { const a = base[k], b = base[k + 1], cc = base[k + 2];
+      const v0 = cc.map((x, i) => x - a[i]), v1 = b.map((x, i) => x - a[i]), v2 = p.map((x, i) => x - a[i]);
+      const d00 = dot(v0, v0), d01 = dot(v0, v1), d02 = dot(v0, v2), d11 = dot(v1, v1), d12 = dot(v1, v2), den = d00 * d11 - d01 * d01;
+      if (Math.abs(den) < 1e-9) continue; const u = (d11 * d02 - d01 * d12) / den, w = (d00 * d12 - d01 * d02) / den;
+      if (u >= -1e-3 && w >= -1e-3 && u + w <= 1 + 1e-3) return true; } return false; };
+    const moved = new Map();
+    for (const [key, v] of uniq) {
+      const d = v.map((x, i) => x - c[i]), L = Math.hypot(...d); if (L < 1e-6 || !inside(v)) { moved.set(key, v); continue; }
+      let lo = 1, hi = 3; for (let i = 0; i < 18; i++) { const m = (lo + hi) / 2; if (inside(c.map((x, k) => x + d[k] * m))) lo = m; else hi = m; }
+      const s = 1 + (lo - 1) * frac; moved.set(key, c.map((x, k) => x + d[k] * s));
+    }
+    for (let k = 0; k < t.length; k++) t[k] = moved.get(t[k].join(','));
+  }
   function closeDecalGaps(prims) {
     const ds = prims.filter(p => p.decal && p.tri.length >= 9);
     if (ds.length < 2) return;
@@ -2629,12 +2730,28 @@ vec4 giTap( vec3 p ) {
 // the two cars'): the sun's, reaching far; the near one round the camera, finer (NEAR_SH: the scenery's shadows close by
 // crisp, handing over to the sun's at its edge); each car's own (CAR_SH).
 float ogSunV = 1.0, ogNearV = 1.0, ogNearE = 2.0, ogCarV0 = 1.0, ogCarD0 = 0.0, ogCarV1 = 1.0, ogCarD1 = 0.0;
-uniform float shRange; uniform vec2 shFade;
+uniform float shRange; uniform vec2 shFade; uniform float giSoft; uniform float giTexW;
 float getShadow( sampler2D shadowMap, vec2 shadowMapSize, float shadowBias, float shadowRadius, vec4 shadowCoord ) {
   vec2 e = abs( shadowCoord.xy / shadowCoord.w - 0.5 ) * 2.0;
   if ( max( e.x, e.y ) >= 1.0 ) return 1.0;   // (outside this map: no shadow from it, and nothing to look up)
   bool sun = shadowRadius < 1.5, near = !sun && shadowRadius < 2.5;
-  float v = smoothstep( 0.42, 0.58, getShadowRaw( shadowMap, shadowMapSize, shadowBias, shadowRadius, shadowCoord ) );   // (the filtered edge's middle, made hard again: it runs straight between the map's texels)
+  // (the baked light's mode: no near map, and the sun's shadow soft, as sunlight is: its edge the softer the further the
+  // shadow falls from what casts it; the blockers' average depth first, then that much blur, 16 taps turned per pixel)
+  if ( giSoft > 0.5 && near ) return 1.0;
+  float v;
+  if ( giSoft > 0.5 && sun ) {
+    vec3 sc = shadowCoord.xyz / shadowCoord.w; float zr = sc.z + shadowBias, rot = fract( sin( dot( gl_FragCoord.xy, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 ) * 6.2831853;
+    vec2 tx = 1.0 / shadowMapSize; float bs = 0.0, bn = 0.0;
+    for ( int i = 0; i < 12; i ++ ) { float a = float( i ) * 2.39996 + rot, r = sqrt( ( float( i ) + 0.5 ) / 12.0 ) * 60.0;
+      float d = unpackRGBAToDepth( texture2D( shadowMap, sc.xy + vec2( cos( a ), sin( a ) ) * r * tx ) ); if ( d < zr ) { bs += d; bn += 1.0; } }
+    if ( bn < 0.5 ) v = 1.0;
+    else {
+      float dz = max( 0.0, zr - bs / bn ) * shRange, rad = clamp( dz * 0.022 / giTexW, 1.2, 28.0 ), lit = 0.0;
+      for ( int i = 0; i < 16; i ++ ) { float a = float( i ) * 2.39996 + rot, r = sqrt( ( float( i ) + 0.5 ) / 16.0 ) * rad;
+        lit += unpackRGBAToDepth( texture2D( shadowMap, sc.xy + vec2( cos( a ), sin( a ) ) * r * tx ) ) < zr ? 0.0 : 1.0; }
+      v = lit / 16.0;
+    }
+  } else v = smoothstep( 0.42, 0.58, getShadowRaw( shadowMap, shadowMapSize, shadowBias, shadowRadius, shadowCoord ) );   // (the filtered edge's middle, made hard again: it runs straight between the map's texels)
   if ( !near ) v = mix( v, 1.0, smoothstep( 0.8, 0.98, max( e.x, e.y ) ) );   // (fading out at the map's edge; the near map hands over to the sun's instead)
   v = mix( v, 1.0, smoothstep( shFade.x, shFade.y, distance( vWPos, cameraPosition ) ) );   // (far off, a long fade by distance: the map's edge, sweeping ahead with the car, made shadows pop in)
   if ( sun ) ogSunV = v;
@@ -2675,7 +2792,7 @@ float vnoise(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 *
   float scnV = mix( ogNearV, ogSunV, smoothstep( 0.7, 0.92, ogNearE ) ), ogShadow = min( scnV, min( ogCarV0, ogCarV1 ) );
   float shadeL = 1.0;
   if ( ogNdl > 0.02 ) {
-    const float K = ${OG_SHADOW.toFixed(3)};
+    float K = giSoft > 0.5 ? 0.5 : ${OG_SHADOW.toFixed(3)};   // (darker in the baked light's mode: its shadows soft, they'd read faint)
     shadeL = 1.0 - K * ( 1.0 - scnV );
     shadeL *= 1.0 - K * ( 1.0 - 0.6 * smoothstep( 150.0, 1200.0, ogCarD0 ) ) * ( 1.0 - ogCarV0 );
     shadeL *= 1.0 - K * ( 1.0 - 0.6 * smoothstep( 150.0, 1200.0, ogCarD1 ) ) * ( 1.0 - ogCarV1 );
@@ -2704,6 +2821,16 @@ float vnoise(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 *
       float fr = pow( 1.0 - clamp( dot( cN, cV ), 0.0, 1.0 ), 5.0 );
       col += vec3( 1.0, 0.98, 0.95 ) * ( s1 * 0.55 + s2 * 0.45 + fr * 0.06 );   // (highlights only: the paint itself stays its colour)
     }
+    // glass: a car's dark neutral faces (its windows, black or the original's grey), darker, with the sky in them
+    // (gradient: the sky above, the ground below), a strong sheen at grazing angles and the sun's glint
+    { vec3 dc = diffuseColor.rgb; float sat = max( max( dc.r, dc.g ), dc.b ) - min( min( dc.r, dc.g ), dc.b ), lumG = dot( dc, vec3( 0.3, 0.59, 0.11 ) );
+      if ( vSpin < 0.5 && sat < 0.02 && lumG < 0.12 ) {
+        vec3 R = reflect( -cV, cN ), Rw = normalize( inverseTransformDirection( R, viewMatrix ) );
+        vec3 env = Rw.y > 0.0 ? mix( vec3( 0.62, 0.74, 0.86 ), vec3( 0.2, 0.42, 0.78 ), clamp( Rw.y * 1.6, 0.0, 1.0 ) ) : vec3( 0.07, 0.08, 0.06 );
+        float fr = 0.12 + 0.88 * pow( 1.0 - clamp( dot( cN, cV ), 0.0, 1.0 ), 4.0 );
+        float glint = pow( max( dot( Rw, sunW ), 0.0 ), 400.0 ) * 3.0 * lit;
+        col = dc * 0.55 * mix( 0.5, 1.0, clamp( li, 0.0, 1.0 ) ) + env * fr * 0.55 + vec3( 1.0, 0.97, 0.9 ) * glint;
+      } }
     outgoingLight = col;
   }
   #endif
@@ -2802,9 +2929,15 @@ float vnoise(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 *
     vec3 nW = normalize( inverseTransformDirection( normal, viewMatrix ) );
     vec4 g = giTap( vWPos + nW * giSize / giRes * 1.1 );
     float ao = clamp( g.a / max( 0.5 + 0.5 * nW.y, 0.25 ), 0.0, 1.0 );
-    gl_FragColor.rgb *= mix( 1.0, 0.45 + 0.55 * ao * ao * ( 3.0 - 2.0 * ao ), giAmt );
+    // (stronger than the sky alone would make it, as a painter would: open ground as it was, a corner or a wall's
+    // foot clearly darker, under a bridge or a roof darkest)
+    float k = clamp( ( ao - 0.35 ) / 0.6, 0.0, 1.0 );
+    gl_FragColor.rgb *= mix( 1.0, mix( 0.55, 1.0, k * k ), giAmt );
     gl_FragColor.rgb += g.rgb * diffuseColor.rgb * giBounce * 0.5 * clamp( 0.65 - 0.65 * nW.y, 0.0, 1.0 );
-    if ( giDbg > 0.5 ) gl_FragColor.rgb = giDbg > 1.5 ? g.rgb : vec3( giDbg > 2.5 ? g.a : ao );   // (?gidebug: 1 the share of sky against the open, 2 the ground's colour, 3 the raw share)
+    if ( giDbg > 0.5 ) gl_FragColor.rgb = giDbg > 2.5 ? vec3( g.a ) : giDbg > 1.5 ? g.rgb : vec3( ao );
+    if ( giDbg > 6.5 ) gl_FragColor.rgb = vec3( giTiles.x / 8.0, giRes.x / 384.0, giRes.y / 32.0 ); else
+    if ( giDbg > 5.5 ) { gl_FragColor.rgb = clamp( ( vWPos + nW * giSize / giRes * 1.1 - giMin ) / giSize, 0.0, 1.0 ); gl_FragColor.g *= 10.0; } else
+    if ( giDbg > 3.5 ) gl_FragColor.rgb = giDbg > 4.5 ? vec3( texture2D( tGI, gl_FragCoord.xy / vec2( 1280.0, 720.0 ) ).a ) : fract( ( vWPos - giMin ) / giSize * 4.0 );   // (?gidebug: 1 the share of sky against the open, 2 the ground's colour, 3 the raw share)
   }
   #endif
   if (underRoof()) gl_FragColor.rgb = diffuseColor.rgb * 0.55;

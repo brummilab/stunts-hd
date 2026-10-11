@@ -320,7 +320,7 @@
           const name = this.fname(this.cstr(r.ds, r.dx));
           let data;
           if (ah === 0x3C) { data = new Uint8Array(0); this.saved[name] = data; }
-          else { data = this.saved[name] || this.files[name]; if (!data) { this.log('open ' + name + ': not found'); return this.err(r, 2); } }
+          else { data = this.saved[name] || this.files[name] || (this.alias && this.alias[name] && (this.saved[this.alias[name]] || this.files[this.alias[name]])); if (!data) { this.log('open ' + name + ': not found'); return this.err(r, 2); } }
           const h = this.handles.length;
           this.handles.push({ name, data, pos: 0, write: ah === 0x3C || (al & 3) !== 0 });
           r.ax = h; this.log('open ' + name); return this.ok(r);
@@ -352,8 +352,19 @@
         case 0x4E: {
           const pat = this.fname(this.cstr(r.ds, r.dx));
           const re = new RegExp('^' + pat.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$');
-          const names = [...new Set([...Object.keys(this.files), ...Object.keys(this.saved)])].filter(n => re.test(n)).sort();
-          this.find = names;
+          // (a name that isn't DOS's 8.3, an add-on track's long one, goes to the game as DOS would show it, BERNIE~1.TRK, and
+          // opens the file under its own name: written out whole, it ran past the game's 13-byte name and broke its stack)
+          const al = this.alias || (this.alias = {}), short = n => {
+            if (/^[A-Z0-9_$~!#%&'(){}^@`-]{1,8}(\.[A-Z0-9_$~!#%&'(){}^@`-]{0,3})?$/.test(n)) return n;
+            for (const [k, v] of Object.entries(al)) if (v === n) return k;
+            const dot = n.lastIndexOf('.'), clean = t => t.replace(/[^A-Z0-9_]/g, ''), base = clean(dot > 0 ? n.slice(0, dot) : n) || 'FILE', ext = clean(dot > 0 ? n.slice(dot + 1) : '').slice(0, 3);
+            for (let i = 1; i < 1000; i++) { const t = String(i), k = base.slice(0, 7 - t.length) + '~' + t + (ext ? '.' + ext : ''); if (!(k in al) && !this.files[k] && !this.saved[k]) { al[k] = n; return k; } }
+            return n.slice(0, 12);
+          };
+          const names = [...new Set([...Object.keys(this.files), ...Object.keys(this.saved)].map(short))].filter(n => re.test(n)).sort();
+          // (at most 127 for a search with a wildcard: the track list counts its entries in a signed byte, 128 reads as -128 and
+          // its stop at 128 never comes, so a pack of more tracks ran past the list and broke the game's stack: More Tracks)
+          this.find = /\*/.test(pat) ? names.slice(0, 127) : names;
           return this.findNext(r);
         }
         case 0x4F: return this.findNext(r);
@@ -366,7 +377,7 @@
     }
     findNext(r) {
       if (!this.find || !this.find.length) return this.err(r, 18);
-      const n = this.find.shift(), data = this.saved[n] || this.files[n];
+      const n = this.find.shift(), real = this.alias && this.alias[n] || n, data = this.saved[real] || this.files[real];
       const [s, o] = this.dta;
       this.wb(s, o + 21, 0x20); this.ww(s, o + 22, 0); this.ww(s, o + 24, 0x2121);
       this.ww(s, o + 26, data.length & 0xFFFF); this.ww(s, o + 28, data.length >>> 16);

@@ -131,8 +131,8 @@ const NOHUD = /[?&]nohud/.test(location.search);
 const ogFlag = new SharedArrayBuffer(16), ogI = new Int32Array(ogFlag);   // ([0] the look (OG), [1] > 0 while the game reads typed text: a high-score name, a save name)
 const typing = () => Atomics.load(ogI, 1) > 0;
 let OG_MODE = false; try { OG_MODE = localStorage.getItem('stunts-og') === '1'; } catch (_) {}
-const LIGHT = /[?&]light\b/.test(location.search);   // (the baked light, L: being tried out, only with ?light for now)
-if (view && LIGHT) try { view.giOn = localStorage.getItem('stunts-light') === '1'; } catch (_) {}
+const LIGHT = /[?&]light\b/.test(location.search) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // (the realistic light, L: still being worked on: the local test server, or ?light)
+if (view && LIGHT) try { view.giOn = localStorage.getItem('stunts-light') !== '0'; } catch (_) { view.giOn = true; }   // (on unless turned off)
 Atomics.store(ogI, 0, OG_MODE ? 1 : 0);   // (no race clock and speed: recording)
 const DEBUG = /[?&]debug/.test(location.search);   // original renderer kept, shown half-transparent over the high-res one
 if (DEBUG) canvas.style.opacity = 0.5;
@@ -262,18 +262,23 @@ function drawHud(t, race, shown) {
   // the dashboard, or in a replay (which keep the game's own)
   const D = StuntsCode.DSEG << 4, Sy = StuntsCode.SYM, hc = document.getElementById('hud');
   const live = !!(race && hud.def && view && t - (view.lastFrame || 0) < 300);
+  if (live) hud.menuAt = 0;
   const on = live && !mem[D + Sy.dashb_toggle] && !mem[D + Sy.game_replay_mode];
   if (!live) {
     // outside a race: only the look's key, and only while the HD picture is on screen (car select, the track menu's
     // overview, a paused race), where pressing it changes what is seen; not on the flat menus
-    if (!hud.def || !view || !shown || document.getElementById('setup')) { hc.hidden = true; hud.drawn = null; return; }
+    if (!hud.def || !view || !shown || document.getElementById('setup')) { hc.hidden = true; hud.drawn = null; hud.menuAt = 0; return; }
+    // (only once that screen has stood a moment: leaving a race for the main menu, the last 3D picture stays on screen a
+    // few frames, and the settings line flashed up over it)
+    if (!hud.menuAt) hud.menuAt = t;
+    if (t - hud.menuAt < 400) { hc.hidden = true; hud.drawn = null; return; }
     const mk = 'menu|' + OG_MODE + '|' + view.giOn + '|' + hc.width + '|' + hc.height;
     hc.hidden = false; if (hud.drawn === mk) return; hud.drawn = mk;
     const c = hc.getContext('2d'), H = hc.height, small = Math.max(1, Math.max(1, H / 340) * 0.75), m = Math.round(H * 0.04);
     c.clearRect(0, 0, hc.width, H);
     const w = hudText(c, hud.def, '(H) HD MODE', m, m + 8 * small, small, 'left', 0.75);
     hudText(c, hud.def, OG_MODE ? 'OFF' : 'ON', m + w + 12 * small, m + 8 * small, small, 'left', 1, 0, '255,247,33');
-    if (LIGHT && !OG_MODE && view.giAvail !== false) { const w2 = hudText(c, hud.def, '(L) LIGHTING', m, m + 19 * small, small, 'left', 0.75); hudText(c, hud.def, view.giOn ? 'BAKED' : 'BASIC', m + w2 + 12 * small, m + 19 * small, small, 'left', 1, 0, '255,247,33'); }
+    if (LIGHT && !OG_MODE && view.giAvail !== false) { const w2 = hudText(c, hud.def, '(L) LIGHTING', m, m + 19 * small, small, 'left', 0.75); hudText(c, hud.def, view.giOn ? 'REALISTIC' : 'CLASSIC', m + w2 + 12 * small, m + 19 * small, small, 'left', 1, 0, '255,247,33'); }
     return;
   }
   const rw = a => mem[a] | mem[a + 1] << 8;
@@ -307,7 +312,7 @@ function drawHud(t, race, shown) {
   const setting = (label, value) => { const w = hudText(c, hud.def, label, m, ly, small, 'left', 0.75); hudText(c, hud.def, value, m + w + 12 * small, ly, small, 'left', 1, 0, '255,247,33'); ly += 11 * small; };
   if (CAMS[d.cam]) setting('(C) CAM', CAMS[d.cam]);
   setting('(H) HD MODE', OG_MODE ? 'OFF' : 'ON');
-  if (LIGHT && !OG_MODE && view.giAvail !== false) setting('(L) LIGHTING', view.giOn ? 'BAKED' : 'BASIC');
+  if (LIGHT && !OG_MODE && view.giAvail !== false) setting('(L) LIGHTING', view.giOn ? 'REALISTIC' : 'CLASSIC');
   // bottom left: the time, its label above, the track's best under it
   // (the ghost's key goes under the best time, when there is a ghost: a lap you finished on this very track)
   const showGhost = view.ghostAvail, gl = showGhost ? 11 * small : 0;
@@ -393,6 +398,21 @@ function frame(t) {   // t: the display frame's time (steadier than reading the 
   // shows again when it closes
   if (idle && shown < marked * 0.4) for (let i = 0; i < 64000; i++) if (scr[i] !== StuntsHires.KEY) { bgU8[128000 + i] = 0; mk[i] = 0; }
   if (view && view.previewView && (keyed ? (view.previewShown = true, false) : view.previewShown && !anyKey)) view.previewView = false;   // (left the menu)
+  // the replay and pause panel: the black the game paints round it, below the 3D window, shows the 3D view instead (the
+  // black reached from the screen's edges only, so the panel's own black, its clocks, stays), out to the wide edges too
+  const hole = frame.hole || (frame.hole = new Uint8Array(64000)); hole.fill(0);
+  if (view && view.raceView && !OG_MODE && keyed && !mem[(StuntsCode.DSEG << 4) + StuntsCode.SYM.dashb_toggle]) {
+    let yk = -1; for (let y = 199; y >= 0; y--) if (rowKey[y] > 0) { yk = y; break; }
+    if (yk >= 100 && yk < 196) {
+      const blk = i => rgb[scr[i]] === rgb[0] && (rgb[0] & 0xFFFFFF) === 0, st = [];
+      const push = i => { if (!hole[i] && blk(i)) { hole[i] = 1; st.push(i); } };
+      for (let y = yk + 1; y < 200; y++) { push(y * 320); push(y * 320 + 319); }
+      for (let x = 0; x < 320; x++) push(199 * 320 + x);
+      while (st.length) { const i = st.pop(), x = i % 320, y = (i / 320) | 0;
+        if (x > 0) push(i - 1); if (x < 319) push(i + 1); if (y > yk + 1) push(i - 320); if (y < 199) push(i + 320); }
+      if (hole.some(Boolean)) for (let y = yk + 1; y < 200; y++) edge[y] = 2;   // (all of it wide: the panel itself is the game's picture, over the view)
+    }
+  }
   let live = false;
   if (view) view.ogHide = OG_MODE && !keyed && !!view.raceView;
   try { live = view && view.render(t, keyed); }
@@ -449,7 +469,7 @@ function frame(t) {   // t: the display frame's time (steadier than reading the 
     bgG.putImageData(bgImg, 0, 0);
   }
   // the 3D window shows through the pixels the worker made see-through
-  for (let i = 0; i < 64000; i++) { const c = scr[i]; px[i] = c === StuntsHires.KEY && mk[i] ? (ogStill ? rgb[bgU8[192000 + i]] : live && !og ? 0 : rgb[c]) : rgb[c]; }
+  for (let i = 0; i < 64000; i++) { const c = scr[i]; px[i] = hole[i] && live && !og ? 0 : c === StuntsHires.KEY && mk[i] ? (ogStill ? rgb[bgU8[192000 + i]] : live && !og ? 0 : rgb[c]) : rgb[c]; }
   // OG mode: your ghost on the original picture, the original's own see-through way (every other pixel, a checkerboard),
   // only on the 3D view (the worker marks it, not the dashboard over it: hires-capture.js)
   const gh = og && view && view.raceView && t - (view.lastFrame || 0) < 250 ? view.ogGhost : null;   // (not once frames stop: paused, a dialog up)

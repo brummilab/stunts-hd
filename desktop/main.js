@@ -18,13 +18,17 @@ const ISOLATED = { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Em
 // there commonly need: X11 (gamescope's Xwayland), and no Chromium sandbox (an AppImage can't set up its helper there).
 // Only there: desktop mode and other systems keep the sandbox.
 const GAMESCOPE = process.platform === 'linux' && !!(process.env.GAMESCOPE_WAYLAND_DISPLAY || process.env.SteamDeck === '1' || process.env.SteamGameId);
-if (GAMESCOPE) { app.commandLine.appendSwitch('no-sandbox'); app.commandLine.appendSwitch('ozone-platform', 'x11'); }
+if (GAMESCOPE) { app.commandLine.appendSwitch('no-sandbox'); app.commandLine.appendSwitch('disable-gpu-sandbox'); app.commandLine.appendSwitch('ozone-platform', 'x11'); }
+// (Linux: a long frame mustn't get the GPU process killed, which froze gamescope; as an NW.js game does that runs there)
+if (process.platform === 'linux') { app.commandLine.appendSwitch('disable-gpu-watchdog'); app.commandLine.appendSwitch('disable-gpu-process-crash-limit'); }
 
-// a log of the start, kept beside the app's settings (log.txt, new each start): for a start that fails where it can't be watched
+// a log of the starts, kept beside the app's settings (log.txt, the last 300 lines): for a start that fails where it can't be
+// watched (Steam's Game Mode), read later from elsewhere; added to, not started afresh, so a later start doesn't hide it
 let logF = null;
-const log = (...a) => { try { if (!logF) { logF = path.join(app.getPath('userData'), 'log.txt'); fs.mkdirSync(path.dirname(logF), { recursive: true }); fs.writeFileSync(logF, ''); }
+const log = (...a) => { try { if (!logF) { logF = path.join(app.getPath('userData'), 'log.txt'); fs.mkdirSync(path.dirname(logF), { recursive: true });
+    let old = ''; try { old = fs.readFileSync(logF, 'utf8').split('\n').slice(-300).join('\n'); } catch (_) {} fs.writeFileSync(logF, old + (old && !old.endsWith('\n') ? '\n' : '') + '---\n'); }
   fs.appendFileSync(logF, new Date().toISOString() + ' ' + a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ') + '\n'); } catch (_) {} };
-log('start', app.getVersion(), process.platform, process.arch, 'electron', process.versions.electron, { gamescope: GAMESCOPE, steamDeck: process.env.SteamDeck || null, wayland: !!process.env.WAYLAND_DISPLAY, display: process.env.DISPLAY || null });
+log('start', app.getVersion(), process.platform, process.arch, 'electron', process.versions.electron, { gamescope: GAMESCOPE, env: Object.fromEntries(Object.entries(process.env).filter(([k]) => /^(Steam|STEAM_COMPAT|GAMESCOPE|WAYLAND_DISPLAY|DISPLAY|XDG_SESSION|XDG_CURRENT|container|PRESSURE_VESSEL|APPIMAGE|SDL_VIDEO)/.test(k)).map(([k, v]) => [k, String(v).slice(0, 80)])) });
 app.on('child-process-gone', (e, d) => log('child process gone', d));
 process.on('uncaughtException', err => log('error', String(err && err.stack || err)));
 
@@ -127,8 +131,9 @@ function menu(win) {
 function open() {
   const b = lastBounds();
   const win = new BrowserWindow({
-    // (in Game Mode: no remembered place or fullscreen at the start, which gamescope does itself)
-    width: b.width || 1280, height: b.height || 800, x: GAMESCOPE ? undefined : b.x, y: GAMESCOPE ? undefined : b.y, fullscreen: !!b.full && !selftest && !GAMESCOPE,
+    // (in Game Mode the window is fullscreen and showing from the moment it appears: gamescope gives the focus to a window
+    // as it first shows, and one going fullscreen later stayed behind Steam's screen; no remembered place there)
+    width: b.width || 1280, height: b.height || 800, x: GAMESCOPE ? undefined : b.x, y: GAMESCOPE ? undefined : b.y, fullscreen: GAMESCOPE || (!!b.full && !selftest),
     minWidth: 640, minHeight: 400, backgroundColor: '#04061a', title: 'Stunts HD', show: !selftest,
     autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true, backgroundThrottling: false },
