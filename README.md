@@ -6,6 +6,11 @@ refresh rate, sharp shadows, the original game logic underneath.
 **Play:** https://stunts-recomp.pages.dev/ (bring your own copy of the game: it is read in your browser and
 never uploaded) · **Trailer:** https://youtu.be/WifwNFpG96o
 
+## Bring your own tracks and cars
+
+Custom `.TRK` tracks in your zip appear alongside the stock ones (or drop them on the game at any time), and add-on
+cars in your zip show up in the car select, packed or unpacked.
+
 ## How it works
 
 The original DOS executable from your own copy is translated, instruction by instruction, into JavaScript in

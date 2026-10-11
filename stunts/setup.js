@@ -152,6 +152,7 @@
   #setup .more { position: relative; z-index: 3; margin-top: 1.5rem; display: flex; justify-content: center; flex-wrap: wrap; gap: .15rem 1rem;
     animation: su-rise .7s cubic-bezier(.2,.7,.3,1) .6s backwards; }
   #setup .info { position: relative; }
+  #setup .info.open, #setup .info:hover { z-index: 5; }   /* (its panel over the links after it in the row: on a phone they showed through it) */
   #setup .info::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 12px; }
   #setup .lnk { display: inline-flex; align-items: center; gap: .45rem; padding: .3rem .35rem; border: 0; background: transparent; cursor: pointer;
     font: 600 .9rem system-ui, sans-serif; color: var(--muted); text-decoration: underline; text-decoration-color: var(--line);
@@ -176,10 +177,18 @@
   @media (hover: hover) { #setup .info:hover .pop { opacity: 1; visibility: visible; transform: translateX(-50%); } }
   /* headings as the trailer's captions: white game-style letters in a black box, a yellow line under */
   #setup .pop h2 { margin: 0 0 .8rem; padding: .85rem 1.1rem .75rem; background: #000; font: 400 .74rem/1.5 var(--px); color: #fff; letter-spacing: .02em; }
-  #setup .pop h2 small { display: block; margin-top: .45rem; font-size: .5rem; color: var(--yel); }
   #setup .pop h3 { margin: 1rem 1.1rem .35rem; font: 400 .55rem var(--px); color: var(--yel); }
   #setup .pop p, #setup .pop ul, #setup .pop ol, #setup .pop .keys { margin: 0 1.1rem; font-size: .86rem; line-height: 1.5; color: var(--muted); }
   #setup .pop p + p { margin-top: .5rem; }
+  #setup .pop ul + p { margin-top: .9rem; }
+  /* the changelog's older versions: a line each that opens (as on the VF1 and FunKey pages) */
+  #setup .pop details { margin: .55rem 1.1rem 0; padding-top: .5rem; border-top: 1px solid rgba(255,255,255,.08); }
+  #setup .pop details summary { cursor: pointer; list-style: none; font-size: .86rem; font-weight: 700; color: var(--ink); }
+  #setup .pop details summary::-webkit-details-marker { display: none; }
+  #setup .pop details summary::after { content: "+"; float: right; color: var(--muted); }
+  #setup .pop details[open] summary::after { content: "−"; }
+  #setup .pop details.closing summary::after { content: "+"; }
+  #setup .pop details ul { margin: 0; padding-top: .4rem; overflow: hidden; }   /* (the next version's heading in the changelog, apart from the list above it) */
   #setup .pop b { color: var(--ink); }
   #setup .pop ul, #setup .pop ol { list-style: none; padding: 0; }
   #setup .pop li { position: relative; padding-left: 1rem; margin-top: .45rem; }
@@ -259,7 +268,7 @@
       <span class="info"><a class="lnk" id="su-watch" href="https://youtu.be/WifwNFpG96o" target="_blank" rel="noopener">${SIGN.play}Watch</a></span>
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.car}Features</button>
         <div class="pop">
-          <h2>What's new<small>OVER THE 1990 ORIGINAL</small></h2>
+          <h2>What's new</h2>
           <ul>
             <li><b>The game's own code,</b> recompiled from your copy in this browser: the same physics, cars and opponents.</li>
             <li><b>HD 3D in widescreen,</b> smooth at any refresh rate.</li>
@@ -273,6 +282,7 @@
             <li><b>Instant restart</b> with <kbd>R</kbd>, and your camera kept from race to race.</li>
             <li><b>A cleaner HUD</b> with the track's record, and the original AdLib music and sound.</li>
             <li><b>Your own tracks:</b> drop <code>.TRK</code> files on the game at any time.</li>
+            <li><b>Your own cars:</b> add-on cars in your zip show up in the car select.</li>
             <li><b>Keyboard or gamepad.</b></li>
           </ul>
           <h3>ORIGINAL GAME FIXES</h3>
@@ -284,7 +294,7 @@
         </div></span>
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.track}How to play</button>
         <div class="pop">
-          <h2>You need<small>STUNTS 1.1, IN A ZIP</small></h2>
+          <h2>You need</h2>
           <ol>
             <li>Find your Stunts folder: the one with <code>STUNTS.EXE</code>, <code>GAME1.P3S</code>, <code>MAIN.RES</code> and friends (Stunts 1.1).</li>
             <li><b>Which copy?</b> Stunts 1.1: its <code>MCGA.COD</code> is ${COD_11.toLocaleString('en')} bytes, dated 13 March 1991. 4D Sports Driving (the European release) and other versions don't run yet.</li>
@@ -297,7 +307,7 @@
         </div></span>
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.opt}Keys</button>
         <div class="pop wide">
-          <h2>Keys<small>A GAMEPAD WORKS TOO</small></h2>
+          <h2>Keys</h2>
           <div class="keys">
             <span><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></span><span>Accelerate, brake, steer</span>
             <span><kbd>A</kbd> <kbd>Z</kbd></span><span>Gear up, down (manual gearbox)</span>
@@ -313,18 +323,31 @@
         </div></span>
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.opp}Known issues</button>
         <div class="pop">
-          <h2>Known issues<small>BEING WORKED ON</small></h2>
+          <h2>Known issues</h2>
           <ul>
             <li><b>Only Stunts 1.1</b> runs: other versions are turned away for now.</li>
           </ul>
         </div></span>
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.log}Changelog</button>
         <div class="pop">
-          <h2>Changelog<small>WHAT CHANGED, NEWEST FIRST</small></h2>
-          <p><b>v1.0</b> &middot; Oct 9 2026</p>
+          <h2>Changelog</h2>
+          <p><b>v1.2</b> &middot; Oct 11 2026</p>
           <ul>
-            <li>First release.</li>
+            <li>Pressing a key during the intro no longer freezes the game on a black screen.</li>
+            <li>Extra cars in your copy work: no more endless "Please check disk" when you pick one.</li>
           </ul>
+          <details><summary>v1.1 &middot; Oct 10 2026</summary><ul>
+            <li>Hills are shaded by the sun, roads up them too, and the cracks between hill pieces are gone.</li>
+            <li>No more sky showing through gaps under roofs (the barn and friends).</li>
+            <li>Widescreen goes as wide as your screen, even 32:9.</li>
+            <li>Smoother shadows: loops, bridges and ramps, and trees on traffic islands now cast them.</li>
+            <li>The flickery dissolve between menu screens is gone in HD mode.</li>
+            <li>An update going live no longer breaks a game you're starting.</li>
+            <li>The source is on GitHub.</li>
+          </ul></details>
+          <details><summary>v1.0 &middot; Oct 9 2026</summary><ul>
+            <li>First release.</li>
+          </ul></details>
         </div></span>
       <span class="info"><a class="lnk" href="https://github.com/mr-finster/stunts-hd" target="_blank" rel="noopener">${SIGN.src}GitHub</a></span>
       <span class="info"><a class="lnk" id="su-support" href="https://buymeacoffee.com/mrfinster" target="_blank" rel="noopener">${SIGN.sup}Support me</a></span>
@@ -434,6 +457,19 @@
     // can (Chrome, Edge). Where there's none (Safari, Firefox) the panel opens in a small window of its own.
     const BMC = 'https://www.buymeacoffee.com/widget/page/mrfinster?description=' + encodeURIComponent('Support me on Buy me a coffee!') +
       '&color=' + encodeURIComponent('#BD5FFF');
+    // the changelog's older versions open and close with a quick slide (as on the VF1 and FunKey pages)
+    el.querySelectorAll('.pop details').forEach(d => {
+      const body = d.querySelector('ul');
+      let anim = null;
+      d.querySelector('summary').addEventListener('click', e => {
+        e.preventDefault();
+        const opening = !d.open || d.classList.contains('closing'), from = d.open ? body.getBoundingClientRect().height : 0;
+        if (anim) anim.cancel();
+        d.open = true; d.classList.toggle('closing', !opening);
+        anim = body.animate({ height: [from + 'px', (opening ? body.scrollHeight : 0) + 'px'], opacity: [from ? 1 : 0, opening ? 1 : 0] }, { duration: 240, easing: 'cubic-bezier(.2,.7,.2,1)' });
+        anim.onfinish = () => { anim = null; if (!opening) { d.open = false; d.classList.remove('closing'); } };
+      });
+    });
     const sup = el.querySelector('#su-support');
     sup.addEventListener('click', e => {
       e.preventDefault();
