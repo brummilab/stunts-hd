@@ -44,6 +44,12 @@ Nothing of the game is in this repository. You need:
 
 `python3 stunts/tools/site.py` builds the static site into `dist/`.
 
+## How it's made
+
+Made with the help of AI coding tools. The game's own code runs unchanged: the translation of your GAME.EXE must
+match a checksum of the known-good translation before it starts, and the HD view is checked in scripted headless
+races and against the original renderer's picture, which a debug mode draws over it.
+
 ## Credits
 
 The reverse engineering this stands on is the Restunts project's disassembly of Stunts. Stunts / 4D Sports
