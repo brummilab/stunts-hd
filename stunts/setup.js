@@ -223,7 +223,7 @@
   #setup .steps label { display: inline-flex; align-items: center; gap: .4rem; margin: 8px 14px 0 0; color: var(--muted); font-size: .8rem; cursor: pointer; }
   #setup .steps input[type=checkbox] { accent-color: var(--yel); width: 14px; height: 14px; }
   #setup.app .more { margin-top: 28px; }
-  /* the changelog's older versions: a line each that opens (as on the VF1 and FunKey pages) */
+  /* the changelog's older versions: a line each that opens */
   #setup .pop details { margin: .55rem 1.1rem 0; padding-top: .5rem; border-top: 1px solid rgba(255,255,255,.08); }
   #setup .pop details summary { cursor: pointer; list-style: none; font-size: .86rem; font-weight: 700; color: var(--ink); }
   #setup .pop details summary::-webkit-details-marker { display: none; }
@@ -583,12 +583,12 @@
       document.body.append(back);
     });
     el.querySelector('#su-tvbtn').addEventListener('click', e => { e.stopPropagation(); el.querySelector('#su-watch').click(); });
-    // Support me: Buy Me a Coffee's support panel, as on the VF1 and FunKey pages. This page is cross-origin isolated (the
+    // Support me: Buy Me a Coffee's support panel, as on the VF1 page. This page is cross-origin isolated (the
     // game's memory is shared with its worker), so BMC's own widget can't embed its page here, but a credentialless iframe
     // can (Chrome, Edge). Where there's none (Safari, Firefox) the panel opens in a small window of its own.
     const BMC = 'https://www.buymeacoffee.com/widget/page/mrfinster?description=' + encodeURIComponent('Support me on Buy me a coffee!') +
       '&color=' + encodeURIComponent('#BD5FFF');
-    // the changelog's older versions open and close with a quick slide (as on the VF1 and FunKey pages)
+    // the changelog's older versions open and close with a quick slide (as on the VF1 page)
     el.querySelectorAll('.pop details').forEach(d => {
       const body = d.querySelector('ul');
       let anim = null;
