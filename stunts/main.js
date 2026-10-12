@@ -132,7 +132,7 @@ const ogFlag = new SharedArrayBuffer(16), ogI = new Int32Array(ogFlag);   // ([0
 const typing = () => Atomics.load(ogI, 1) > 0;
 let OG_MODE = false; try { OG_MODE = localStorage.getItem('stunts-og') === '1'; } catch (_) {}
 const LIGHT = /[?&]light\b/.test(location.search) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // (the realistic light, L: still being worked on: the local test server, or ?light)
-if (view && LIGHT) try { view.giOn = localStorage.getItem('stunts-light') !== '0'; } catch (_) { view.giOn = true; }   // (on unless turned off)
+if (view && LIGHT) try { view.giOn = localStorage.getItem('stunts-light') === '1'; } catch (_) { view.giOn = false; }   // (classic unless L turned it on)
 Atomics.store(ogI, 0, OG_MODE ? 1 : 0);   // (no race clock and speed: recording)
 const DEBUG = /[?&]debug/.test(location.search);   // original renderer kept, shown half-transparent over the high-res one
 if (DEBUG) canvas.style.opacity = 0.5;

@@ -389,13 +389,19 @@
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.log}Changelog</button>
         <div class="pop">
           <h2>Changelog</h2>
-          <p><b>v1.5.2</b> &middot; Oct 11 2026</p>
+          <p><b>v1.5.3</b> &middot; Oct 12 2026</p>
           <ul>
+            <li>Racing the same track again after picking another car no longer shows a black scene with giant polygons.</li>
+            <li>Car windows flush with the body, with nothing of the car's inside showing round them.</li>
+            <li>Add-on cars (ZakStunts pack): grilles and rear panels as the original drew them.</li>
+            <li>Tyre marks one even shade.</li>
+          </ul>
+          <details><summary>v1.5.2 &middot; Oct 11 2026</summary><ul>
             <li>More Tracks no longer crashes with a big track pack (over 127 tracks), and long track names from packs open.</li>
             <li>Tyre marks only from the wheels on the grass, and no longer showing through things.</li>
             <li>Paused or in a replay, the 3D view fills the screen round the panel.</li>
             <li>Car windows look like glass, sized to their frames; no flash of the settings line leaving a race; no stutter the first time things appear.</li>
-          </ul>
+          </ul></details>
           <details><summary>v1.5.1 &middot; Oct 11 2026</summary><ul>
             <li>Desktop app: pick your game as a folder or a zip (on Windows and Linux the one dialog only showed folders).</li>
             <li>A tick once your game is in; fullscreen and skip-this-screen on to start with.</li>

@@ -556,7 +556,7 @@ void main() {
           pos[v * 3] = t[i]; pos[v * 3 + 1] = t[i + 1]; pos[v * 3 + 2] = -t[i + 2];
           col[v * 3] = c[0]; col[v * 3 + 1] = c[1]; col[v * 3 + 2] = c[2]; rank[v] = (p.rank + layer) * RANKS + p.idx; pat[v] = p.pat;
           if (p.lofs) { lo[v * 3] = p.lofs[i]; lo[v * 3 + 1] = p.lofs[i + 1]; lo[v * 3 + 2] = -p.lofs[i + 2]; }
-          one[v] = p.one; spin[v] = p.slope ? -1 : 0; c2[v * 2] = p.cull2 & 0xFFFF; c2[v * 2 + 1] = p.cull2 >>> 16; nocast[v] = p.canopy ? 1 : p.ribbon || seeThrough(p.pat) && p.plane && p.plane.n[1] > 0.85 ? 2 : 0;   // (2: see-through, casts all the same: decided here, from the face's own plane, as the moving pieces' shadows decide it (DynBuf.fill); the normals three.js makes point the other way)
+          one[v] = p.one; spin[v] = p.slope ? -1 : p.glass ? 0.25 : 0; c2[v * 2] = p.cull2 & 0xFFFF; c2[v * 2 + 1] = p.cull2 >>> 16; nocast[v] = p.canopy ? 1 : p.ribbon || seeThrough(p.pat) && p.plane && p.plane.n[1] > 0.85 ? 2 : 0;   // (2: see-through, casts all the same: decided here, from the face's own plane, as the moving pieces' shadows decide it (DynBuf.fill); the normals three.js makes point the other way)
           if (p.f3 && p.one) { f0.set(p.f3[0], v * 3); fn.set(p.f3[1], v * 3); }
         }
       }
@@ -2137,6 +2137,10 @@ void main() {
       // two-tile turns) are on the edge, so
       // neighbouring pieces meet with no crack along hill crests and road joins
       let wheels = false;
+      // (a car's windows reach up to its roof line, the top 38% of its height: a dark panel lower down, a grille or rear
+      // panel (the DAF Siluro's), is not grown or snapped as glass)
+      let vlo = 1e9, vhi = -1e9; for (const v of V) { vlo = Math.min(vlo, v[1]); vhi = Math.max(vhi, v[1]); }
+      const winY = vlo + (vhi - vlo) * 0.62;
       { for (let i = 0, q = pa; i < np && !wheels; i++) { if (m[q] === 12) wheels = true; q += 2 + npaint + (VCOUNT[m[q]] || 0); }
         if (!wheels) for (const v of V) for (const k of [0, 2]) { const a = Math.abs(v[k]); if (a > 504 && a < 520 && a !== 512) v[k] = Math.sign(v[k]) * 512; else if (a > 1016 && a < 1032 && a !== 1024) v[k] = Math.sign(v[k]) * 1024; } }
       const prims = [];
@@ -2195,7 +2199,7 @@ void main() {
           if (on && wheels && poly && tri.length >= 3 && on.tri && on.tri.length >= 9) {
             const sat = Math.max(...c) - Math.min(...c), bv = [];
             for (let k = 0; k + 2 < on.tri.length; k += 3) bv.push([on.tri[k], on.tri[k + 1], on.tri[k + 2]]);
-            if (sat < 0.03 && Math.max(...c) < 0.42 && triArea(tri) > 0.15 * triArea(bv)) growInside(tri, bv, GLASS_GROW);
+            if (sat < 0.03 && Math.max(...c) < 0.42 && triArea(tri) > 0.15 * triArea(bv) && Math.max(...tri.map(v => v[1])) > winY) { growInside(tri, bv, GLASS_GROW); snapCorners(tri, bv); }
           }
         } else baseIdx = prims.length;
         if (poly && P.length >= 3 && !P.some(p => !p)) plane = planeOf(P);
@@ -2235,7 +2239,7 @@ void main() {
             if (wheels && p.c) {
               const sat = Math.max(...p.c) - Math.min(...p.c), V = a => { const r = []; for (let k = 0; k + 2 < a.length; k += 3) r.push([a[k], a[k + 1], a[k + 2]]); return r; };
               const pv = V(t), qv = V(u);
-              if (sat < 0.03 && Math.max(...p.c) < 0.42 && triArea(pv) > 0.15 * triArea(qv)) { growInside(pv, qv, GLASS_GROW); p.tri = new Float32Array(pv.flat()); }
+              if (sat < 0.03 && Math.max(...p.c) < 0.42 && triArea(pv) > 0.15 * triArea(qv) && Math.max(...pv.map(v => v[1])) > winY) { growInside(pv, qv, GLASS_GROW); snapCorners(pv, qv); p.tri = new Float32Array(pv.flat()); }
             }
             break;
           }
@@ -2279,22 +2283,16 @@ void main() {
         if (!alone) for (const p of tree) p.onPiece = true;   // (a tree on another piece, a traffic island's: it casts too, canopy and trunk, as one alone)
       }
       closeDecalGaps(prims);
-      // a car's glass as faces of its own (most windows: slanted panes, not marks on a panel): their edges stop short of the
-      // body's, slits the original's painting at 320x200 never showed but HD does, the inside of the car and a wheel
-      // through them; each pane spread out in its own plane past its edges, over the body round it
-      if (wheels) for (const p of prims) {
-        if (p.decal || p.wheel || !p.poly || !p.plane || !p.c || !p.tri || p.tri.length < 9) continue;
-        if (Math.max(...p.c) - Math.min(...p.c) >= 0.03 || Math.max(...p.c) >= 0.42) continue;
-        const t = p.tri, n = p.plane.n, c = [0, 0, 0], m = t.length / 3;
-        for (let k = 0; k < t.length; k += 3) for (let i = 0; i < 3; i++) c[i] += t[k + i] / m;
-        let size = 0; for (let k = 0; k < t.length; k += 3) size = Math.max(size, Math.hypot(t[k] - c[0], t[k + 1] - c[1], t[k + 2] - c[2]));
-        const grow = Math.min(2.5, Math.max(1, size * 0.035));   // (enough to close the slits; more and a pane stood out past the body)
-        for (let k = 0; k < t.length; k += 3) {
-          let d = [t[k] - c[0], t[k + 1] - c[1], t[k + 2] - c[2]]; const e = dot(d, n); d = [d[0] - e * n[0], d[1] - e * n[1], d[2] - e * n[2]];
-          const L = Math.hypot(...d); if (L < 1e-6) continue;
-          for (let i = 0; i < 3; i++) t[k + i] += d[i] / L * grow;
-        }
-      }
+      // a car's see-through faces (the original's dotted glass: windscreens, side windows) solid, dark glass: drawn
+      // half see-through they showed the body's inside and a wheel through them (the model has no inside to show)
+      // (windows only, reaching up to the roof line; a dotted grille or rear panel lower down (the DAF Siluro's) stays as
+      // it was, or it became shiny glass)
+      let ylo = 1e9, yhi = -1e9; if (wheels) for (const p of prims) if (!p.wheel && p.f3) for (let k = 1; k < p.tri.length; k += 3) { ylo = Math.min(ylo, p.tri[k]); yhi = Math.max(yhi, p.tri[k]); }
+      const ycut = ylo + (yhi - ylo) * 0.34, topY = p => { let t = -1e9; for (let k = 1; k < p.tri.length; k += 3) t = Math.max(t, p.tri[k]); return t; }, ywin = ylo + (yhi - ylo) * 0.62, midY = p => { let my = 0; for (let k = 1; k < p.tri.length; k += 3) my += p.tri[k]; return my / (p.tri.length / 3); };
+      // (glass: the shine (spin 0.25, see the car's shading) only on dark neutral faces reaching up to the roof line, the
+      // top 38% of the car's height (windscreens, side and rear windows); below, a dark grey face is a grille, bumper or rear panel)
+      if (wheels) for (const p of prims) if (!p.wheel && p.tri.length && topY(p) > ywin) p.glass = 1;
+      if (wheels) for (const p of prims) if (seeThrough(p.pat) && p.poly && !p.wheel && p.tri.length && topY(p) > ywin) { p.pat = 0xFFFF; if (p.c && Math.max(...p.c) - Math.min(...p.c) < 0.15) p.c = [0.2, 0.2, 0.2]; }   // (a dotted lamp, red, stays its colour)
       // a level one-sided face up off the ground (a tunnel's roof, a deck's underside) is drawn from both sides:
       // the original shows a tunnel's roof only from inside, so from outside it looked roofless
       for (const p of prims) if (p.one && p.level && !p.rank && p.tri.length) { let y = 0; for (let k = 1; k < p.tri.length; k += 3) y += p.tri[k]; if (y / (p.tri.length / 3) > y0 + 100) p.one = 0; }
@@ -2305,8 +2303,11 @@ void main() {
         let cx = 0, cy = 0, cz = 0, n = 0;
         for (const p of prims) if (!p.wheel && p.f3) for (let k = 0; k < p.tri.length; k += 3) { cx += p.tri[k]; cy += p.tri[k + 1]; cz += p.tri[k + 2]; n++; }
         cx /= n; cy /= n; cz /= n;
+        // (only low on the car, its lower third: the same grey up on the body is glass (windscreens, rear windows), and
+        // pushed in it left slits round each pane, the inside of the car seen through them)
         for (const p of prims) {
           const c = p.c; if (p.wheel || !p.f3 || !c || Math.abs(c[0] - c[1]) > 0.02 || Math.abs(c[1] - c[2]) > 0.02 || c[0] < 0.12 || c[0] > 0.45) continue;
+          if (midY(p) > ycut) continue;
           for (let k = 0; k < p.tri.length; k += 3) {
             const dx = cx - p.tri[k], dy = cy - p.tri[k + 1], dz = cz - p.tri[k + 2], l = Math.hypot(dx, dy, dz) || 1;
             p.tri[k] += dx / l * 3; p.tri[k + 1] += dy / l * 3; p.tri[k + 2] += dz / l * 3;
@@ -2626,6 +2627,17 @@ vec4 giTap( vec3 p ) {
     }
     for (let k = 0; k < t.length; k++) t[k] = moved.get(t[k].join(','));
   }
+  // a window's corners onto its panel's own, where one is near (within a third of the window's size): the glass meets the
+  // body's lines exactly, as the shell's points are
+  function snapCorners(t, base) {
+    const bk = new Map(); for (const v of base) bk.set(v.join(','), v); const bs = [...bk.values()];
+    let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; for (const v of t) for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i], v[i]); hi[i] = Math.max(hi[i], v[i]); }
+    const tol = Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) / 3, moved = new Map();
+    for (const v of t) { const k = v.join(','); if (moved.has(k)) continue; let best = null, bd = tol;
+      for (const b of bs) { const d = Math.hypot(b[0] - v[0], b[1] - v[1], b[2] - v[2]); if (d < bd) { bd = d; best = b; } }
+      moved.set(k, best ? best.slice() : v); }
+    for (let k = 0; k < t.length; k++) t[k] = moved.get(t[k].join(','));
+  }
   function closeDecalGaps(prims) {
     const ds = prims.filter(p => p.decal && p.tri.length >= 9);
     if (ds.length < 2) return;
@@ -2821,10 +2833,10 @@ float vnoise(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 *
       float fr = pow( 1.0 - clamp( dot( cN, cV ), 0.0, 1.0 ), 5.0 );
       col += vec3( 1.0, 0.98, 0.95 ) * ( s1 * 0.55 + s2 * 0.45 + fr * 0.06 );   // (highlights only: the paint itself stays its colour)
     }
-    // glass: a car's dark neutral faces (its windows, black or the original's grey), darker, with the sky in them
+    // glass: a car's dark neutral faces up on the car (spin 0.25: its windows, black or the original's grey), darker, with the sky in them
     // (gradient: the sky above, the ground below), a strong sheen at grazing angles and the sun's glint
     { vec3 dc = diffuseColor.rgb; float sat = max( max( dc.r, dc.g ), dc.b ) - min( min( dc.r, dc.g ), dc.b ), lumG = dot( dc, vec3( 0.3, 0.59, 0.11 ) );
-      if ( vSpin < 0.5 && sat < 0.02 && lumG < 0.12 ) {
+      if ( vSpin > 0.1 && vSpin < 0.5 && sat < 0.02 && lumG < 0.12 ) {
         vec3 R = reflect( -cV, cN ), Rw = normalize( inverseTransformDirection( R, viewMatrix ) );
         vec3 env = Rw.y > 0.0 ? mix( vec3( 0.62, 0.74, 0.86 ), vec3( 0.2, 0.42, 0.78 ), clamp( Rw.y * 1.6, 0.0, 1.0 ) ) : vec3( 0.07, 0.08, 0.06 );
         float fr = 0.12 + 0.88 * pow( 1.0 - clamp( dot( cN, cV ), 0.0, 1.0 ), 4.0 );
@@ -3023,7 +3035,7 @@ float vnoise(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 *
           let wsh = null;
           if (o.crumple && p.wheel && wc0) { const q = crumple(wc0[0], wc0[1], -wc0[2], o.crumple); wsh = [q[0] - wc0[0], q[1] - wc0[1], q[2] + wc0[2]]; }
           for (let k = 0; k < t.length; k += 3, v++) {
-            if (p.wheel) { const w = p.wheel[k / 3], rim = w >= 2 ? 2 : 0; this.spin[v] = 1 + rim + ((w - rim + turn) % 1 + 1) % 1; } else this.spin[v] = p.slope ? -1 : 0;   // 0: not a wheel; 1..2 tyre, 3..4 rim; -1 a hill's face (shaded by the sun)
+            if (p.wheel) { const w = p.wheel[k / 3], rim = w >= 2 ? 2 : 0; this.spin[v] = 1 + rim + ((w - rim + turn) % 1 + 1) % 1; } else this.spin[v] = p.slope ? -1 : p.glass ? 0.25 : 0;   // 0: not a wheel; 1..2 tyre, 3..4 rim; -1 a hill's face (shaded by the sun)
             let x = t[k], y = t[k + 1], z = -t[k + 2];
             if (o.crumple && !p.wheel) [x, y, z] = crumple(x, y, z, o.crumple);
             if (st) { const dx = t[k] - wc0[0], dz = t[k + 2] - wc0[2]; x = wc0[0] + dx * sc - dz * ss; z = -(wc0[2] + dx * ss + dz * sc); }

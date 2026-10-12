@@ -49,7 +49,9 @@
     const latest = new Uint8Array(64000), seen = new Uint32Array(64000);
     let session = 1, lastPublish = 0, lastKind = -1, inRace = 0;
     const rg = P.run_game;
-    if (rg) P.run_game = function (r, m, PP, e) { inRace++; try { return rg(r, m, PP, e); } finally { inRace--; } };
+    // (each race builds the world afresh: the same track raced again after picking another car has its shapes loaded
+    // elsewhere, and the world kept from the last race (keyed on the layout only) drew a black scene and giant polygons)
+    if (rg) P.run_game = function (r, m, PP, e) { inRace++; worldHash = -1; try { return rg(r, m, PP, e); } finally { inRace--; } };
     function toBackground(L, R, T, Bt) {
       const base = 16 + buf * BUF;
       Atomics.store(I, 13, 1);
