@@ -20,6 +20,8 @@ smooth at any refresh rate, the original game's own code and physics underneath.
   <a href="https://github.com/mr-finster/stunts-hd/issues">Report a bug</a>
 </p>
 
+<p align="center"><a href="https://stunts-recomp.pages.dev/stunts/media/readme/montage.jpg"><img src="https://stunts-recomp.pages.dev/stunts/media/readme/montage.jpg" alt="Stunts HD: bridges over the bay, water reflections, draw distance, the 3D track view and car select" width="100%"></a></p>
+
 > [!IMPORTANT]
 > No game files are included or hosted. You need your own copy of Stunts 1.1 (the game's folder, or a zip of it).
 > It is read on your computer and never uploaded.
