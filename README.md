@@ -121,6 +121,7 @@ Nothing of the game is in this repository. You need:
 Made with the help of AI coding tools. The game's own code runs unchanged: the translation of your GAME.EXE must
 match a checksum of the known-good translation before it starts, and the HD view is checked in scripted headless
 races and against the original renderer's picture, which a debug mode draws over it.
+More in [How it was made](docs/HOW-IT-WAS-MADE.md).
 
 ## Credits
 
