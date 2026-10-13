@@ -1,25 +1,97 @@
-# Stunts HD
+<p align="center"><img src="stunts/logo.webp" alt="Stunts HD" width="520"></p>
 
-Stunts / 4D Sports Driving (DOS, 1990), running natively in the browser in HD: widescreen, smooth at any
-refresh rate, sharp shadows, the original game logic underneath.
+<h1 align="center">Stunts HD</h1>
 
-**Play:** https://stunts-recomp.pages.dev/ (bring your own copy of the game: it is read in your browser and
-never uploaded) · **Trailer:** https://youtu.be/WifwNFpG96o
+<p align="center"><b>Stunts / 4D Sports Driving (DOS, 1990), recompiled for your browser and desktop: HD 3D, widescreen,
+smooth at any refresh rate, the original game's own code and physics underneath.</b></p>
 
-## Bring your own tracks and cars
+<p align="center">
+  <a href="https://github.com/mr-finster/stunts-hd/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/mr-finster/stunts-hd?label=release"></a>
+  <a href="LICENSE"><img alt="Licence: MIT" src="https://img.shields.io/badge/licence-MIT-blue"></a>
+  <img alt="Platforms" src="https://img.shields.io/badge/platforms-browser%20%7C%20macOS%20%7C%20Windows%20%7C%20Linux-informational">
+</p>
 
-Custom `.TRK` tracks in your zip appear alongside the stock ones (or drop them on the game at any time), and add-on
-cars in your zip show up in the car select, packed or unpacked.
+<p align="center">
+  <a href="https://stunts-recomp.pages.dev/">Play in your browser</a> ·
+  <a href="https://github.com/mr-finster/stunts-hd/releases/latest">Download</a> ·
+  <a href="https://youtu.be/WifwNFpG96o">Trailer</a> ·
+  <a href="#status">Status</a> ·
+  <a href="#controls">Controls</a> ·
+  <a href="https://github.com/mr-finster/stunts-hd/issues">Report a bug</a>
+</p>
+
+> [!IMPORTANT]
+> No game files are included or hosted. You need your own copy of Stunts 1.1 (the game's folder, or a zip of it).
+> It is read on your computer and never uploaded.
+
+## About
+
+Stunts HD runs the original DOS game's own code, translated from your copy, and redraws what it draws in HD: real 3D
+at your display's resolution, widescreen, interpolated between the game's frames. The handling, opponents, replays
+and crashes are the original's, because it is the original's code.
+
+## Status
+
+| Area | State |
+| --- | --- |
+| Racing, opponents, replays, crashes | Working: the original's own code |
+| HD 3D view, widescreen, any refresh rate | Working |
+| OG mode (the 1990 look, <kbd>H</kbd>) | Working |
+| Track editor, More Tracks, custom `.TRK` tracks | Working |
+| Add-on cars (e.g. the ZakStunts pack) | Working |
+| Ghost car, track sharing (Import/Export) | Working |
+| Keyboard and gamepad | Working |
+| Desktop app: macOS, Windows, Linux | Working |
+| Other versions of the game (4D Sports Driving and others) | Not yet: Stunts 1.1 only |
+| Steam Deck Game Mode | Not working: desktop mode only |
+
+## Play
+
+**In your browser:** open [stunts-recomp.pages.dev](https://stunts-recomp.pages.dev/) in Chrome, Edge or Firefox and
+pick your Stunts folder or zip.
+
+**Desktop app:** from the [latest release](https://github.com/mr-finster/stunts-hd/releases/latest):
+
+| System | Download |
+| --- | --- |
+| macOS (Apple Silicon and Intel) | `Stunts-HD-mac-universal.zip` |
+| Windows | `Stunts-HD-win-x64.zip` (ARM: `win-arm64`) |
+| Linux | `Stunts-HD-linux-x86_64.AppImage` (ARM: `linux-arm64`) |
+
+1. Unzip (Linux: make the AppImage executable) and open **Stunts HD**.
+2. Pick your Stunts 1.1 folder or zip on the welcome screen.
+3. The first start needs an internet connection once (the game's translation map is fetched from the site and kept).
+
+> [!NOTE]
+> The app isn't signed: on macOS, the first time, open it from System Settings > Privacy & Security > Open Anyway;
+> on Windows, choose More info > Run anyway.
+
+## Controls
+
+| Key | Does |
+| --- | --- |
+| <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> | Accelerate, brake, steer |
+| <kbd>A</kbd> <kbd>Z</kbd> | Gear up, down (manual gearbox) |
+| <kbd>C</kbd> | Camera: in car, high, chase, TV |
+| <kbd>H</kbd> | HD mode or OG mode |
+| <kbd>G</kbd> | Ghost car on or off |
+| <kbd>D</kbd> | Dashboard on or off |
+| <kbd>R</kbd> | Restart the race |
+| <kbd>Esc</kbd> | Race menu: replays, restart, quit |
+| <kbd>F</kbd> | Fullscreen |
+
+Gamepad: stick or d-pad to steer, triggers to drive.
 
 ## How it works
 
-The original DOS executable from your own copy is translated, instruction by instruction, into JavaScript in
-your browser and run unmodified on a small emulated PC: DOS file and memory services, BIOS, VGA mode 13h, the
-PIT timer, the keyboard controller and an AdLib (OPL2) synth. Because it is the real game code, the handling,
-opponents, replays and crashes behave exactly as they did. A renderer then picks up what the game draws each
-frame and paints it again with WebGL at display resolution, interpolated between the game's own frames.
+The original DOS executable from your own copy is translated, instruction by instruction, into JavaScript and run
+unmodified on a small emulated PC: DOS file and memory services, BIOS, VGA mode 13h, the PIT timer, the keyboard
+controller and an AdLib (OPL2) synth. A renderer then picks up what the game draws each frame and paints it again
+with WebGL at display resolution, interpolated between the game's own frames.
 
-| File | Role |
+## Repository layout
+
+| Path | Contents |
 | --- | --- |
 | `stunts/translate.js`, `x86dec.js`, `exefile.js` | decode GAME.EXE and translate it to JavaScript, with `map.json` |
 | `stunts/tools/mkmap.py` | builds `map.json` (names and places only) from the Restunts disassembly |
@@ -58,8 +130,8 @@ this project. three.js (MIT).
 
 ## Licence
 
-MIT for this project's own code: see LICENSE.
+MIT for this project's own code: see [LICENSE](LICENSE).
 
 ## Support
 
-If you enjoy it, you can buy me a coffee: https://buymeacoffee.com/mrfinster
+If you enjoy it, you can [buy me a coffee](https://buymeacoffee.com/mrfinster).
