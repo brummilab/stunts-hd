@@ -744,17 +744,39 @@ void main() {
     // changes, and none popping in at the edges of a wider or trailing view.
     cloudSky(seen, cur) {
       const reg = this.cloudReg || (this.cloudReg = []);
+      const now = performance.now();
       const dAng = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
-      const e = cur.R.elements, yaw = Math.atan2(e[2], e[10]), sp = Math.max(-1, Math.min(1, e[6])), cp = Math.sqrt(1 - sp * sp);
+      // (the camera's whole turn undone, its roll and pitch as well as its heading: the in-car camera leans and pitches
+      // with the car, and undoing its pitch alone put clouds at wrong heights and headings as the car rolled on a bank or
+      // went over a jump: they drifted on their own, and some were taken for new clouds and drawn again beside themselves)
+      // (R's rows are the camera's axes in the world: camera space C = R w, so w = R^T C; then turned to its heading)
+      const e = cur.R.elements, row = r => [e[r], e[r + 4], e[r + 8]], R0 = row(0), R1 = row(1), R2 = row(2);
+      const yaw = Math.atan2(R2[0], R2[2]), cy = Math.cos(yaw), sy = Math.sin(yaw);
+      const level = (X, Y, Z) => { const wx = X * R0[0] + Y * R1[0] + Z * R2[0], wy = X * R0[1] + Y * R1[1] + Z * R2[1], wz = X * R0[2] + Y * R1[2] + Z * R2[2];
+        return [wx * cy - wz * sy, wy, wx * sy + wz * cy]; };
+      const unlevel = (hx, hy, hz) => { const wx = hx * cy + hz * sy, wz = -hx * sy + hz * cy;
+        return [R0[0] * wx + R0[1] * hy + R0[2] * wz, R1[0] * wx + R1[1] * hy + R1[2] * wz, R2[0] * wx + R2[1] * hy + R2[2] * wz]; };
       for (const o of seen) {
-        const X = o.C[3], Y = o.C[7], Z = o.C[11];   // camera space
-        const Zl = Z * cp - Y * sp, Yl = Y * cp + Z * sp;   // pitch undone
+        const [X, Yl, Zl] = level(o.C[3], o.C[7], o.C[11]);   // camera space, levelled: sideways, up, ahead
         if (Zl < 1000) continue;
         const az = Math.PI - (yaw + Math.asin(Math.max(-1, Math.min(1, X / Zl))));   // three.js heading (stunts z mirrored)
         let c = null, bd = 0.05;
         for (const r of reg) if (r.ptr === o.ptr) { const d = Math.abs(dAng(az, r.az)); if (d < bd) { bd = d; c = r; } }
-        if (!c) reg.push(c = { ptr: o.ptr, paint: o.paint, az, d: Zl, y: Yl });
-        else { c.az += dAng(az, c.az) * 0.2; c.d += (Zl - c.d) * 0.2; c.y += (Yl - c.y) * 0.2; c.paint = o.paint; }   // (integer noise only)
+        if (!c) reg.push(c = { ptr: o.ptr, paint: o.paint, az, d: Zl, y: Yl, at: now });
+        else { c.az += dAng(az, c.az) * 0.2; c.d += (Zl - c.d) * 0.2; c.y += (Yl - c.y) * 0.2; c.paint = o.paint; c.at = now; }   // (integer noise only)
+      }
+      // (one remembered where the game would draw it now, well inside its view, and not drawn there for half a second:
+      // a stray copy, or the clouds moved: dropped. A cloud a camera saw slightly off its remembered heading (a camera
+      // change, the in-car view leaning on a banked road) was added again beside the first, and they built up)
+      // (how far to the side and how high the game draws clouds: learnt from the ones it draws; 'well inside' is within
+      // 80% of the furthest to the side, and level with one drawn this frame, as all of a track's clouds are equally high)
+      const vy = [];
+      for (const o of seen) { const X = o.C[3], Y = o.C[7], Z = o.C[11]; if (Z > 1000) { this.cloudX = Math.max(this.cloudX || 0, Math.abs(X / Z)); vy.push(Y / Z); } }
+      if (vy.length && this.cloudX > 0.2) for (let i = reg.length - 1; i >= 0; i--) {
+        const c = reg[i], a = Math.PI - c.az - yaw;   // (the game's sideways angle for it: X = depth * sin a, at its depth)
+        if (Math.cos(a) < 0.5 || now - c.at < 500) continue;
+        const [X, Y, Z] = unlevel(c.d * Math.sin(a), c.y, c.d * Math.cos(a));   // (where in the camera's view it would be)
+        if (Z > 1000 && Math.abs(X / Z) < 0.8 * this.cloudX && vy.some(v => Math.abs(v - Y / Z) < 0.05)) reg.splice(i, 1);
       }
       const p = this.camPos;
       return reg.map(c => {
@@ -843,6 +865,29 @@ void main() {
     // The chase camera (camera mode 2) as in a modern racer: the game's camera swings around the followed
     // car's vertical axis, trailing the angle the game puts it at, so the car is seen to turn and slide.
     // Distance, height, pitch and the car's place on screen stay the game's. Changes q and cp in place.
+    // The in-car camera kept clear of the track: eased between the game's places it could pass a little under a banked
+    // road or into a wall beside it, and faces aren't drawn from behind: the road vanished and the ground below showed
+    // through. Rays from just above it, down its own up axis and down the world's, and from beside it to either side,
+    // find the nearest surfaces; it is moved out along their normals to at least CLEAR from each.
+    camClear(q, cp) {
+      const CLEAR = 5, ray = this.clearRay || (this.clearRay = new T.Raycaster()), inv = q.clone().invert();
+      const targets = this.statics.children.filter(c => c.visible).concat(this.dyn.mesh, this.dynFlat.mesh, this.ground);
+      const up = new T.Vector3(0, 1, 0).applyQuaternion(inv), right = new T.Vector3(1, 0, 0).applyQuaternion(inv).setY(0).normalize();
+      const nM = new T.Matrix3(), im = new T.Matrix4();
+      for (const d of [up.clone().negate(), new T.Vector3(0, -1, 0), right, right.clone().negate()]) {
+        // (from only a little behind: far enough to catch a surface the camera has slipped a few units past, not so far
+        // that a tunnel's roof or the far side of a wall is taken for it)
+        const back = 15;
+        ray.set(cp.clone().addScaledVector(d, -back), d); ray.near = 0; ray.far = back + CLEAR;
+        const hit = ray.intersectObjects(targets, false).find(h => h.face);
+        if (!hit) continue;
+        const n = hit.face.normal.clone();
+        if (hit.instanceId != null) { hit.object.getMatrixAt(hit.instanceId, im); n.applyMatrix3(nM.getNormalMatrix(im)); } else n.applyMatrix3(nM.getNormalMatrix(hit.object.matrixWorld));
+        n.normalize(); if (n.dot(d) > 0) n.negate();   // (facing back along the ray: towards where the camera should be)
+        const dist = cp.clone().sub(hit.point).dot(n);
+        if (dist < CLEAR) cp.addScaledVector(n, CLEAR - dist);
+      }
+    }
     followCam(now, cur, ease, q, cp) {
       const dt = Math.min(0.1, Math.max(0, (now - (this.followT || now)) / 1000)); this.followT = now; this.camDt = dt;   // (aimCam eases with it too)
       // a new race, or a restart (the game's frame counter goes back): the camera and the wheels start where the game
@@ -1004,7 +1049,8 @@ void main() {
         }
         // debugging: view.debugCam = { x, y, z, yaw, pitch } (stunts world, angles in degrees) looks from there instead
         const dc = this.debugCam;
-        if (!dc && !this.ogHide) { this.followCam(now, cur, ease, q, cp); this.aimCam(cur, ease, q, cp); }
+        if (!dc && !this.ogHide) { this.followCam(now, cur, ease, q, cp); this.aimCam(cur, ease, q, cp);
+          if ((cur.mode != null ? cur.mode : this.mem[(this.D << 4) + this.S.cameramode]) === 0) this.camClear(q, cp); }
         if (dc) { cp.set(dc.x, dc.y, -dc.z); q.setFromEuler(new T.Euler(-dc.pitch * Math.PI / 180, -dc.yaw * Math.PI / 180, 0, 'YXZ')).invert(); }
         view.makeRotationFromQuaternion(q).multiply(new T.Matrix4().makeTranslation(-cp.x, -cp.y, -cp.z));
         this.camPos = cp;
@@ -1088,12 +1134,15 @@ void main() {
       // the camera inside a shape (the truck at the start): show only the faces the original drew, so the
       // walls around the camera stay hidden as in the original; otherwise every face, depth-tested (the
       // original drops polygons that cross its near limit, e.g. the road right under the chase camera)
-      const cw = this.camPos;
+      // (the in-car camera: never. It sits within a few dozen units of the road, so on a banked corner (not level) the
+      // road the game dropped at its near limit went too, the tile under the car with it, and the ground below showed
+      // through; every face is drawn instead, and camClear keeps the camera above the road)
+      const cw = this.camPos, inCar = race && (cur.mode != null ? cur.mode : this.mem[(this.D << 4) + this.S.cameramode]) === 0;
       for (const o of draw.concat(flat)) {
         const W = o.Wm, bb = this.shape(o.ptr, o.paint).bb, dx = cw.x - W[3], dy = cw.y - W[7], dz = cw.z - W[11];
         // local (mirrored) = R^T d; shape space z is mirrored back
         const lx = W[0] * dx + W[4] * dy + W[8] * dz, ly = W[1] * dx + W[5] * dy + W[9] * dz, lz = -(W[2] * dx + W[6] * dy + W[10] * dz);
-        o.inside = race && lx > bb[0] - 4 && lx < bb[3] + 4 && ly > bb[1] - 4 && ly < bb[4] + 4 && lz > bb[2] - 4 && lz < bb[5] + 4;
+        o.inside = race && !inCar && lx > bb[0] - 4 && lx < bb[3] + 4 && ly > bb[1] - 4 && ly < bb[4] + 4 && lz > bb[2] - 4 && lz < bb[5] + 4;
         o.camL = [lx, ly, lz];
       }
       // a captured piece the camera isn't inside: its static instance after all (needed only for the faces the original
@@ -2412,7 +2461,9 @@ void main() {
     }
   }
 
-  const NEAR = 8, FAR = 400000;
+  // (the nearest the camera draws: small, so the in-car view never cuts away a wall or road right beside it; the
+  // logarithmic depth buffer keeps its precision however near)
+  const NEAR = 1, FAR = 400000;
   const LAYER = 4;
   const HZ_R = 56000;   // the race horizon's distance (the fog's far end is 60000)
   const HD_SKY = /[?&]hdsky/.test(root.location ? root.location.search : '');
