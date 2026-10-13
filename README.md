@@ -1,4 +1,4 @@
-<p align="center"><img src="stunts/logo.webp" alt="Stunts HD" width="520"></p>
+<p align="center"><img src="stunts/logo-hd.png" alt="Stunts HD" width="560"></p>
 
 <h1 align="center">Stunts HD</h1>
 
