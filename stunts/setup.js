@@ -393,10 +393,13 @@
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.log}Changelog</button>
         <div class="pop">
           <h2>Changelog</h2>
-          <p><b>v1.5.5</b> &middot; Oct 13 2026</p>
+          <p><b>v1.5.6</b> &middot; Oct 13 2026</p>
           <ul>
-            <li>In-car view: no tyre marks in front of the camera, and drowning fills the whole screen.</li>
+            <li>OG mode: the picture's black side bars are back where they belong.</li>
           </ul>
+          <details><summary>v1.5.5 &middot; Oct 13 2026</summary><ul>
+            <li>In-car view: no tyre marks in front of the camera, and drowning fills the whole screen.</li>
+          </ul></details>
           <details><summary>v1.5.4 &middot; Oct 13 2026</summary><ul>
             <li>Clouds no longer multiply after restarts and camera changes, or drift in the in-car view.</li>
             <li>In-car view: banked corners and the road under the car no longer drop out of view.</li>

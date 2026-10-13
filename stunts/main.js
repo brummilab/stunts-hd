@@ -271,7 +271,7 @@ function drawHud(t, race, shown) {
     // (only once that screen has stood a moment: leaving a race for the main menu, the last 3D picture stays on screen a
     // few frames, and the settings line flashed up over it)
     if (!hud.menuAt) hud.menuAt = t;
-    if (t - hud.menuAt < 400) { hc.hidden = true; hud.drawn = null; return; }
+    if (t - hud.menuAt < 60) { hc.hidden = true; hud.drawn = null; return; }   // (about a game frame: long enough for the last race picture to go)
     const mk = 'menu|' + OG_MODE + '|' + view.giOn + '|' + hc.width + '|' + hc.height;
     hc.hidden = false; if (hud.drawn === mk) return; hud.drawn = mk;
     const c = hc.getContext('2d'), H = hc.height, small = Math.max(1, Math.max(1, H / 340) * 0.75), m = Math.round(H * 0.04);
@@ -451,7 +451,7 @@ function frame(t) {   // t: the display frame's time (steadier than reading the 
     const KEYC = StuntsHires.KEY, solidRow = y => { const o = y * 320, c = scr[o]; if (c === KEYC) return false;
       for (let x = 0; x < 6; x++) if (scr[o + x] !== c || scr[o + 314 + x] !== c) return false; return true; };
     let solidAny = false;
-    if (!dash && race && view.raceView) for (let y = 0; y < 200; y++) if (edge[y] !== 2 && solidRow(y)) { solidAny = true; break; }
+    if (!dash && !og && keyed && race && view.raceView) for (let y = 0; y < 200; y++) if (edge[y] !== 2 && solidRow(y)) { solidAny = true; break; }
     sidesCanvas.hidden = !dash && !solidAny;
     if (dash || solidAny) {
       const cw = Math.max(320, Math.round(320 * (view.wide || 1))), m = (cw - 320) >> 1;
@@ -482,7 +482,9 @@ function frame(t) {   // t: the display frame's time (steadier than reading the 
   if (gh) for (let i = 0; i < 64000; i++) if (ogView[i] && gh[i * 4 + 3] && !(((i % 320) ^ ((i / 320) | 0)) & 1)) px[i] = 0xFF000000 | (gh[i * 4 + 2] << 16) | (gh[i * 4 + 1] << 8) | gh[i * 4];
   if (live && !og && view.stageShadow && !view.previewView && openStage(view.stageShadow)) bgG.putImageData(bgImg, 0, 0);
   g.putImageData(img, 0, 0);
-  drawHud(t, live && view.raceView && !NOHUD, live);
+  // (and only while the 3D view shows through in this very frame, or in OG mode: leaving car select or a race for the
+  // high scores, the last 3D picture is kept a few frames more, and the settings line lingered over the next screen)
+  { const now3d = live && (keyed || og); drawHud(t, now3d && view.raceView && !NOHUD, now3d); }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

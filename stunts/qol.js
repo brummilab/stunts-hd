@@ -449,14 +449,16 @@
       if (r.added.length) pickTrack(n + '.TRK');   // (the new track on the menu at once)
     });
     // shown on the track menu (its 3D overview up)
+    // (placed every frame, from the 3D view's own canvas: from the page's HUD, hidden for a moment as the menu came up,
+    // it was first placed by the 4:3 picture and then jumped)
     let drawn = '';
-    setInterval(() => {
+    const place = () => {
       const on = !!(typeof view !== 'undefined' && view && view.previewView && !document.getElementById('setup'));
       btn.style.display = on ? 'block' : 'none';
       if (!on) return;
       const r = document.getElementById('screen').getBoundingClientRect(), u = r.height / 200;
       // (the top right corner of the whole view, as the page's "(H) HD MODE" is the top left: its margin, 4% of the height)
-      const hr = document.getElementById('hud').getBoundingClientRect(), g = hr.width ? hr : r, mg = g.height * 0.04;
+      const hr = document.getElementById('gl').getBoundingClientRect(), g = hr.width ? hr : r, mg = g.height * 0.04;
       const w = Math.round(88 * u), h = Math.round(13 * u);
       btn.style.left = Math.round(g.right - mg - w) + 'px'; btn.style.top = Math.round(g.top + mg * 0.6) + 'px';
       btn.style.width = w + 'px'; btn.style.height = h + 'px'; btn.style.setProperty('--b', Math.max(1, Math.round(u)) + 'px');
@@ -467,6 +469,7 @@
         const c = bc.getContext('2d'), uu = u * dpr; c.clearRect(0, 0, bc.width, bc.height);
         hudText(c, font, 'Import/Export', bc.width / 2, bc.height / 2 + 3 * uu, uu * 0.75, 'center', 1, 0, '0,0,0', false);
       }
-    }, 150);
+    };
+    const loop = () => { place(); requestAnimationFrame(loop); }; requestAnimationFrame(loop);
   }
 })();
