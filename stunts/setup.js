@@ -182,14 +182,16 @@
   #setup .lnk .sg { width: 1.05em; height: 1.05em; flex: none; }
   #setup .lnk:hover, #setup .info.open .lnk { color: #fff; text-decoration-color: var(--yel); }
   /* Watch: the trailer with sound, from YouTube, over the page */
-  #su-vid { position: fixed; inset: 0; z-index: 2147483000; display: flex; align-items: center; justify-content: center; padding: 16px;
+  #su-vid { position: fixed; inset: 0; z-index: 2147483000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px;
     background: rgba(2,3,12,.88); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); cursor: pointer; }
-  #su-vid .yt { position: relative; width: min(1700px, 100%, calc((100vh - 110px) * 16 / 9)); aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden;
+  #su-vid .yt { position: relative; width: min(1700px, 100%, calc((100vh - 150px) * 16 / 9)); aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden;
     background: #000; box-shadow: 0 30px 80px rgba(0,0,0,.7); cursor: auto; }
   #su-vid iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
   #su-vid .x { position: absolute; top: 14px; right: 16px; width: 36px; height: 36px; border-radius: 50%; border: 0; cursor: pointer;
     background: rgba(255,255,255,.1); color: #fff; font: 600 1.2rem/36px system-ui, sans-serif; }
   #su-vid .x:hover { background: rgba(255,255,255,.2); }
+  #su-vid .ytlink { margin-top: 14px; font: 14px system-ui, sans-serif; color: rgba(255,255,255,.6); text-decoration: none; cursor: pointer; }
+  #su-vid .ytlink:hover { color: #fff; }
   #setup .pop { position: absolute; bottom: calc(100% + 10px); left: 50%; width: min(380px, calc(100vw - 32px)); max-height: min(72vh, 560px);
     overflow-y: auto; overscroll-behavior: contain; padding: 0 0 1rem; text-align: left; background: #0e1226; border-radius: 4px;
     box-shadow: 0 24px 60px rgba(0,0,0,.7), inset 0 0 0 1px rgba(255,255,255,.08);
@@ -391,11 +393,14 @@
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.log}Changelog</button>
         <div class="pop">
           <h2>Changelog</h2>
-          <p><b>v1.5.4</b> &middot; Oct 13 2026</p>
+          <p><b>v1.5.5</b> &middot; Oct 13 2026</p>
           <ul>
+            <li>In-car view: no tyre marks in front of the camera, and drowning fills the whole screen.</li>
+          </ul>
+          <details><summary>v1.5.4 &middot; Oct 13 2026</summary><ul>
             <li>Clouds no longer multiply after restarts and camera changes, or drift in the in-car view.</li>
             <li>In-car view: banked corners and the road under the car no longer drop out of view.</li>
-          </ul>
+          </ul></details>
           <details><summary>v1.5.3 &middot; Oct 12 2026</summary><ul>
             <li>Racing the same track again after picking another car no longer shows a black scene with giant polygons.</li>
             <li>Car windows flush with the body, with nothing of the car's inside showing round them.</li>
@@ -575,7 +580,7 @@
       e.preventDefault();
       if (document.getElementById('su-vid')) return;
       const back = document.createElement('div'); back.id = 'su-vid';
-      back.innerHTML = '<div class="yt"></div><button class="x" aria-label="Close">&times;</button>';
+      back.innerHTML = '<div class="yt"></div><a class="ytlink" href="https://youtu.be/WifwNFpG96o" target="_blank" rel="noopener">Watch on YouTube &#8599;</a><button class="x" aria-label="Close">&times;</button>';
       const f = document.createElement('iframe');
       f.credentialless = true;                                // (before its src)
       f.title = 'Stunts HD trailer'; f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; f.allowFullscreen = true;

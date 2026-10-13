@@ -1546,9 +1546,15 @@ void main() {
         // ran in one groove, or short segments met, the marks were darker, first off the road most of all)
         const mm = new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false, side: T.DoubleSide,
           stencilWrite: true, stencilRef: 2, stencilFunc: T.NotEqualStencilFunc, stencilZPass: T.ReplaceStencilOp, stencilFail: T.KeepStencilOp, stencilZFail: T.KeepStencilOp });   // (2: the car footprint uses 1)
+        // (the in-car view: none under your own car, between the wheels: the car isn't drawn there, so the fresh marks under
+        // it lay right in front of the camera; footOn, the car's turn (footR) and place (footT), its half size (footH))
+        const FOOT = this.markFoot = { footOn: { value: 0 }, footR: { value: new T.Matrix3() }, footT: { value: new T.Vector3() }, footH: { value: new T.Vector2() } };
         mm.onBeforeCompile = sh => {
-          sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float rank; varying float vRank;').replace('#include <logdepthbuf_vertex>', '#include <logdepthbuf_vertex>\nvRank = rank;');
-          sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vRank;').replace('#include <logdepthbuf_fragment>', `#include <logdepthbuf_fragment>
+          Object.assign(sh.uniforms, FOOT);
+          sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float rank; varying float vRank; varying vec3 vMW;').replace('#include <logdepthbuf_vertex>', '#include <logdepthbuf_vertex>\nvRank = rank; vMW = position;');
+          sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vRank; varying vec3 vMW; uniform float footOn; uniform mat3 footR; uniform vec3 footT; uniform vec2 footH;')
+            .replace('void main() {', 'void main() {\n  if (footOn > 0.5) { vec3 l = footR * (vMW - footT); if (abs(l.x) < footH.x && abs(l.z) < footH.y) discard; }')
+            .replace('#include <logdepthbuf_fragment>', `#include <logdepthbuf_fragment>
 #if defined( USE_LOGDEPTHBUF ) && defined( USE_LOGDEPTHBUF_EXT )
 { float d0 = gl_FragDepthEXT, rk = floor((vRank + 0.5) / ${RANKS}.0), ti = vRank - rk * ${RANKS}.0; gl_FragDepthEXT = d0 - rk * (0.6 * fwidth(d0) + 1e-5) - ti * ${TIE_D}; }
 #endif`);
@@ -1581,6 +1587,7 @@ void main() {
         return { p: hit.point.clone().addScaledVector(n, 0.2), s: side.clone().addScaledVector(n, -side.dot(n)), rank };
       };
       let added = false;
+      this.markFoot.footOn.value = 0;
       // (each car's wheels from its full shape, wherever it is: far off the game draws a car's low-detail shape, which has
       // none, and the car isn't drawn at all from the in-car camera; then its place comes from the game's state)
       const gcf = this.S.gameconfig;
@@ -1592,6 +1599,12 @@ void main() {
         const M = o ? ease(o) : c && q ? c.map((v, k) => q[k] + (v - q[k]) * this.easeA) : c;   // (not drawn: eased between frames as a drawn car is)
         if (!M) continue;
         const sh = this.shape(this.rw(this.S.trkObjectList + ci * 14 + 4), o ? o.paint : this.mem[D + gcf + (ci === 2 ? 4 : 11)]);
+        if (ci === 2 && sh.bb && this.mem[D + this.S.cameramode] === 0) {   // (your car, from the in-car camera: its footprint, a little over)
+          const F = this.markFoot, bb = sh.bb; F.footOn.value = 1;
+          F.footR.value.set(M[0], M[4], M[8], M[1], M[5], M[9], M[2], M[6], M[10]);   // (world to the car's own axes: the turn's transpose)
+          F.footT.value.set(M[3], M[7], M[11]);
+          F.footH.value.set(Math.max(-bb[0], bb[3]) + 4, Math.max(-bb[2], bb[5]) + 4);
+        }
         // (which of the game's four wheels each drawn one is: the nearest of the game's own wheel places, car_whlWorldCrds1
         // at +0x74, whose order car_surfaceWhl at +0xC2 follows; guessed from the shape's sides, one wheel on the grass
         // marked the one on the road)

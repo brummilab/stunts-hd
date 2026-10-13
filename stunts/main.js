@@ -446,15 +446,21 @@ function frame(t) {   // t: the display frame's time (steadier than reading the 
     // (the dashboard: the rows the 3D view doesn't reach across, carried out to the sides in the cockpit's own colours,
     // so it reads as one wide cockpit and not a 4:3 panel between black bars: each row one hard colour, the game's own
     // palette colour nearest its outer few columns, no fading or smoothing across the rows: pixels, not a blur)
-    sidesCanvas.hidden = !dash;
-    if (dash) {
+    // (and, out of the dashboard, any race row the game paints one solid colour out to both its edges: under water, the
+    // drowning picture's blue, which stood between black bars)
+    const KEYC = StuntsHires.KEY, solidRow = y => { const o = y * 320, c = scr[o]; if (c === KEYC) return false;
+      for (let x = 0; x < 6; x++) if (scr[o + x] !== c || scr[o + 314 + x] !== c) return false; return true; };
+    let solidAny = false;
+    if (!dash && race && view.raceView) for (let y = 0; y < 200; y++) if (edge[y] !== 2 && solidRow(y)) { solidAny = true; break; }
+    sidesCanvas.hidden = !dash && !solidAny;
+    if (dash || solidAny) {
       const cw = Math.max(320, Math.round(320 * (view.wide || 1))), m = (cw - 320) >> 1;
       if (sidesCanvas.width !== cw) { sidesCanvas.width = cw; sidesCanvas.height = 200; sidesCanvas.img = sidesG.createImageData(cw, 200); sidesCanvas.px = new Uint32Array(sidesCanvas.img.data.buffer); }
       const sp = sidesCanvas.px; sp.fill(0);
       const near = (r, g_, b_) => { let best = 0xFF000000, bd = 1e9; for (let i = 0; i < 256; i++) { const c = rgb[i], d = ((c & 255) - r) ** 2 + (((c >>> 8) & 255) - g_) ** 2 + (((c >>> 16) & 255) - b_) ** 2; if (d < bd) { bd = d; best = c; } } return best; };
       const row = (y, x0) => { let r = 0, g_ = 0, b_ = 0; for (let x = x0; x < x0 + 6; x++) { const c = scr[y * 320 + x] === StuntsHires.KEY && mk[y * 320 + x] ? 0 : rgb[scr[y * 320 + x]]; r += c & 255; g_ += (c >>> 8) & 255; b_ += (c >>> 16) & 255; } return near(r / 6, g_ / 6, b_ / 6); };
       for (let y = 0; y < 200; y++) {
-        if (edge[y] === 2) continue;
+        if (edge[y] === 2 || (!dash && !solidRow(y))) continue;
         const L = row(y, 0), R = row(y, 314), o = y * cw;
         for (let x = 0; x < m + 3; x++) { sp[o + x] = L; sp[o + cw - 1 - x] = R; }   // (on a little under the picture: no gap where they meet)
       }
