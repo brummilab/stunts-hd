@@ -349,7 +349,6 @@
           </ul>
           <h3>ORIGINAL GAME FIXES</h3>
           <ul>
-            <li><b>The bump bug:</b> touching the other car could leave yours pulling left for the rest of the race (a rounding slip in the 1990 code). Now it straightens out.</li>
             <li><b>Tunnel roofs</b> show from outside too; the original drew them only from inside.</li>
             <li><b>No demo</b> starting by itself while you sit in the menus.</li>
           </ul>
@@ -393,15 +392,14 @@
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.log}Changelog</button>
         <div class="pop">
           <h2>Changelog</h2>
-          <p><b>v1.5.8</b> &middot; Oct 14 2026</p>
+          <p><b>v1.5.9</b> &middot; Oct 15 2026</p>
           <ul>
-            <li>Widescreen dashboard: a smooth curve, the roof matching, and drowning filling the whole screen again.</li>
-            <li>The dashboard's sides go with the picture when you leave a race.</li>
-            <li>No more seeing through the Acura's side intake.</li>
+            <li>Replays recorded in DOS play back as recorded again: one stopped with "divide by zero", and the bump-bug fix sent others off course, so it's off for now.</li>
           </ul>
-          <details><summary>v1.5.7 &middot; Oct 14 2026</summary><ul>
-            <li>Widescreen in-car view: the dashboard wraps round the sides on a gentle curve, without its gauges copied out.</li>
+          <details><summary>v1.5.8 &middot; Oct 14 2026</summary><ul>
+            <li>Widescreen in-car view: the dashboard wraps round the sides on a smooth, gentle curve, without its gauges copied out, and goes with the picture when you leave a race.</li>
             <li>Dashboard on or off (<kbd>D</kbd>) is remembered from race to race.</li>
+            <li>Drowning fills the whole screen again, and no more seeing through the Acura's side intake.</li>
           </ul></details>
           <details><summary>v1.5.6 &middot; Oct 13 2026</summary><ul>
             <li>OG mode: the picture's black side bars are back where they belong.</li>

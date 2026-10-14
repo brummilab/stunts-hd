@@ -111,10 +111,13 @@
     imul8(r, b) { const t = s8(r.ax & 0xFF) * s8(b); r.ax = t & 0xFFFF; r.cf = (t < -128 || t > 127) ? 1 : 0; r.of = !!r.cf; }
     imul16(r, b) { const t = s16(r.ax) * s16(b); r.ax = t & 0xFFFF; r.dx = (t >> 16) & 0xFFFF; r.cf = (t < -32768 || t > 32767) ? 1 : 0; r.of = !!r.cf; }
     imul3(r, a, b) { const t = s16(a) * s16(b); r.cf = (t < -32768 || t > 32767) ? 1 : 0; r.of = !!r.cf; return t & 0xFFFF; }
-    div8(r, b) { if (!b) throw new Error('divide by zero'); const a = r.ax; const q = Math.floor(a / b), m = a % b; if (q > 0xFF) throw new Error('divide overflow'); r.ax = (m << 8) | q; }
-    div16(r, b) { if (!b) throw new Error('divide by zero'); const a = r.dx * 65536 + r.ax; const q = Math.floor(a / b), m = a % b; if (q > 0xFFFF) throw new Error('divide overflow'); r.ax = q; r.dx = m; }
-    idiv8(r, b) { b = s8(b); if (!b) throw new Error('divide by zero'); const a = s16(r.ax); const q = Math.trunc(a / b), m = a - q * b; if (q > 127 || q < -128) throw new Error('divide overflow'); r.ax = ((m & 0xFF) << 8) | (q & 0xFF); }
-    idiv16(r, b) { b = s16(b); if (!b) throw new Error('divide by zero'); const a = (r.dx << 16) | r.ax; const q = Math.trunc(a / b), m = a - q * b; if (q > 32767 || q < -32768) throw new Error('divide overflow'); r.ax = q & 0xFFFF; r.dx = m & 0xFFFF; }
+    // a divide fault (by zero, or a quotient too big) is INT 0, and the game's own handler (intr0_handler, set up by
+    // init_div0) skips the instruction with AX = 0 and DX as it was: done here directly
+    div0(r) { r.ax = 0; }
+    div8(r, b) { if (!b) return this.div0(r); const a = r.ax; const q = Math.floor(a / b), m = a % b; if (q > 0xFF) return this.div0(r); r.ax = (m << 8) | q; }
+    div16(r, b) { if (!b) return this.div0(r); const a = r.dx * 65536 + r.ax; const q = Math.floor(a / b), m = a % b; if (q > 0xFFFF) return this.div0(r); r.ax = q; r.dx = m; }
+    idiv8(r, b) { b = s8(b); if (!b) return this.div0(r); const a = s16(r.ax); const q = Math.trunc(a / b), m = a - q * b; if (q > 127 || q < -128) return this.div0(r); r.ax = ((m & 0xFF) << 8) | (q & 0xFF); }
+    idiv16(r, b) { b = s16(b); if (!b) return this.div0(r); const a = (r.dx << 16) | r.ax; const q = Math.trunc(a / b), m = a - q * b; if (q > 32767 || q < -32768) return this.div0(r); r.ax = q & 0xFFFF; r.dx = m & 0xFFFF; }
 
     // string instructions with optional rep/repe/repne prefix
     str(r, op, prefix) {

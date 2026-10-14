@@ -175,11 +175,15 @@ onmessage = async e => {
   let lastUF = null, inUF = 0, inRun = 0;
   // The original's bump bug: after touching the other car, a car's extra wheel angle (car_36MwhlAngle) dies away by
   // 15/16 a frame, rounded down: from a positive value it reaches 0, from -15 it stays (-225 >> 4 = -15), and the car
-  // pulls left for good. Here, after the original's own update, a value stuck in -15..-1 shrinks as a positive one does
-  { const ug = StuntsCode.P.update_grip; if (ug) StuntsCode.P.update_grip = function (r, m, P, e) {
+  // pulls left for good. Here, after the original's own update, a value stuck in -15..-1 shrinks as a positive one does.
+  // Not in a replay: a replay is the race driven again from its keys, and one recorded in DOS hit the bug there
+  // (mr-finster/stunts-hd#1: 0051 left the road and drowned)
+  // Off for now (2026-10-15): it changed the physics replays recorded in DOS were made with; kept to turn back on
+  const BUMPFIX = false;
+  { const ug = StuntsCode.P.update_grip; if (BUMPFIX && ug) StuntsCode.P.update_grip = function (r, m, P, e) {
     const cs = pc.rw(r.ss, (r.sp + 4) & 0xFFFF), ret = ug(r, m, P, e), Dg = StuntsCode.DSEG;
     let w = pc.rw(Dg, cs + 54); if (w > 32767) w -= 65536;
-    if (w < 0 && w > -16 && pc.rw(Dg, cs + 62) === 0) pc.ww(Dg, cs + 54, (-((-w * 15) >> 4)) & 0xFFFF);
+    if (w < 0 && w > -16 && pc.rw(Dg, cs + 62) === 0 && !pc.rb(Dg, StuntsCode.SYM.is_in_replay)) pc.ww(Dg, cs + 54, (-((-w * 15) >> 4)) & 0xFFFF);
     return ret;
   }; }
   // a track the page has just added (or the one to show after a delete): the track menu's More Tracks is pressed for it

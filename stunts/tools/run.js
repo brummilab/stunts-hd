@@ -47,6 +47,11 @@ if (process.env.WATCH) {
 }
 let wire = null;
 if (process.env.HIRES) { const sc = globalThis.__scene = new SharedArrayBuffer(StuntsHires.BYTES); const back = new Uint8Array(64000); StuntsHires.install(pc, StuntsCode, sc, new SharedArrayBuffer(128000), { world: (globalThis.__world = new SharedArrayBuffer(StuntsHires.WBYTES)), keepOriginal: !process.env.NOKEEP, onRastered: ra => { for (let y = 0; y < 200; y++) { const a = ra(y); back.set(pc.mem.subarray(a, a + 320), y * 320); } } }); if (process.env.DIFF) { const d = require(process.env.DIFF)(pc, StuntsCode, sc, back); wire = () => d(path.join(OUT, 'soft.png')); } }
+if (process.env.BUMPFIX) { const ug = StuntsCode.P.update_grip; StuntsCode.P.update_grip = function (r, m, P, e) {   // (the page's bump-bug fix, as worker.js has it)
+  const cs = pc.rw(r.ss, (r.sp + 4) & 0xFFFF), ret = ug(r, m, P, e), Dg = StuntsCode.DSEG;
+  let w = pc.rw(Dg, cs + 54); if (w > 32767) w -= 65536;
+  if (w < 0 && w > -16 && pc.rw(Dg, cs + 62) === 0 && !pc.rb(Dg, StuntsCode.SYM.is_in_replay)) pc.ww(Dg, cs + 54, (-((-w * 15) >> 4)) & 0xFFFF);
+  return ret; }; }
 if (process.env.VTEST) require(process.env.VTEST)(pc, StuntsCode);
 const queue = script.slice().sort((a, b) => a.at - b.at);
 let lastShot = 0;
