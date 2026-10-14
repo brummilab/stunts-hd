@@ -349,6 +349,7 @@
           </ul>
           <h3>ORIGINAL GAME FIXES</h3>
           <ul>
+            <li><b>The bump bug:</b> touching the other car could leave yours pulling left for the rest of the race (a rounding slip in the 1990 code). Now it straightens out.</li>
             <li><b>Tunnel roofs</b> show from outside too; the original drew them only from inside.</li>
             <li><b>No demo</b> starting by itself while you sit in the menus.</li>
           </ul>
@@ -394,13 +395,11 @@
           <h2>Changelog</h2>
           <p><b>v1.5.9</b> &middot; Oct 15 2026</p>
           <ul>
-            <li>Replays recorded in DOS play back as recorded again: one stopped with "divide by zero", and the bump-bug fix sent others off course, so it's off for now.</li>
-          </ul>
-          <details><summary>v1.5.8 &middot; Oct 14 2026</summary><ul>
+            <li>A replay that stopped with "divide by zero" plays again. Some replays recorded in DOS still drift off course: being looked into.</li>
             <li>Widescreen in-car view: the dashboard wraps round the sides on a smooth, gentle curve, without its gauges copied out, and goes with the picture when you leave a race.</li>
             <li>Dashboard on or off (<kbd>D</kbd>) is remembered from race to race.</li>
             <li>Drowning fills the whole screen again, and no more seeing through the Acura's side intake.</li>
-          </ul></details>
+          </ul>
           <details><summary>v1.5.6 &middot; Oct 13 2026</summary><ul>
             <li>OG mode: the picture's black side bars are back where they belong.</li>
           </ul></details>
