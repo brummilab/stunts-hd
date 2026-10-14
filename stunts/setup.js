@@ -393,11 +393,16 @@
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.log}Changelog</button>
         <div class="pop">
           <h2>Changelog</h2>
-          <p><b>v1.5.7</b> &middot; Oct 14 2026</p>
+          <p><b>v1.5.8</b> &middot; Oct 14 2026</p>
           <ul>
+            <li>Widescreen dashboard: a smooth curve, the roof matching, and drowning filling the whole screen again.</li>
+            <li>The dashboard's sides go with the picture when you leave a race.</li>
+            <li>No more seeing through the Acura's side intake.</li>
+          </ul>
+          <details><summary>v1.5.7 &middot; Oct 14 2026</summary><ul>
             <li>Widescreen in-car view: the dashboard wraps round the sides on a gentle curve, without its gauges copied out.</li>
             <li>Dashboard on or off (<kbd>D</kbd>) is remembered from race to race.</li>
-          </ul>
+          </ul></details>
           <details><summary>v1.5.6 &middot; Oct 13 2026</summary><ul>
             <li>OG mode: the picture's black side bars are back where they belong.</li>
           </ul></details>

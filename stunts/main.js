@@ -130,9 +130,10 @@ const NOHUD = /[?&]nohud/.test(location.search);
 const DASHM = ((/[?&]dash=(\w+)/.exec(location.search) || [])[1] || 'curve');   // (the widescreen dashboard: curve, the default; ?dash=flat the old flat colours)
 // (?dash=curve: the dashboard carried out to the sides bending down: each column further out drawn lower, on a curve that
 // takes it off the bottom of the screen; above it the 3D view. Its pixels: the car's plain column (DASH_COLS), as tex)
-function drawCurve(dashRow) {
-  const cw = Math.max(320, Math.round(320 * (view.wide || 1))), m = (cw - 320) >> 1;
-  if (sidesCanvas.width !== cw) { sidesCanvas.width = cw; sidesCanvas.height = 200; sidesCanvas.img = sidesG.createImageData(cw, 200); sidesCanvas.px = new Uint32Array(sidesCanvas.img.data.buffer); }
+function drawCurve(dashRow, solidUp) {
+  // (drawn at SS times the game's resolution: the curve's edge smooth, not a staircase of the game's pixels)
+  const SS = 4, cw = Math.max(320, Math.round(320 * (view.wide || 1))), m = (cw - 320) >> 1, W = cw * SS, H = 200 * SS;
+  if (sidesCanvas.width !== W) { sidesCanvas.width = W; sidesCanvas.height = H; sidesCanvas.img = sidesG.createImageData(W, H); sidesCanvas.px = new Uint32Array(sidesCanvas.img.data.buffer); }
   const sp = sidesCanvas.px; sp.fill(0);
   const D = StuntsCode.DSEG << 4, G = StuntsCode.SYM.gameconfig, code = String.fromCharCode(...mem.subarray(D + G, D + G + 4));
   const cols = DASH_COLS[code] || { l: 0, r: 318 }, K = StuntsHires.KEY;
@@ -143,20 +144,25 @@ function drawCurve(dashRow) {
   // (the two columns copied, remembered per car the first time they stand unchanged a second, outside a replay: whatever the
   // game draws over the dash meanwhile (the replay panel, the gear change's pop-up) is never carried out to the sides)
   const colOf = c => { const a = new Uint32Array(200); for (let y = 0; y < 200; y++) { const v = scr[y * 320 + c]; a[y] = v === K ? 0 : rgb[v]; } return a; };
-  const now = { code, top, roof, l0: colOf(cols.l), l1: colOf(cols.l + 1), r0: colOf(cols.r), r1: colOf(cols.r - 1) };
+  const now = { code, top, roof, l0: colOf(cols.l), l1: colOf(cols.l + 1), r0: colOf(cols.r), r1: colOf(cols.r - 1), e0: colOf(0), e1: colOf(1), f0: colOf(319), f1: colOf(318) };
   const D2 = (StuntsCode.DSEG << 4), replay = !!mem[D2 + StuntsCode.SYM.game_replay_mode];
-  const same = (p, q) => p && p.code === q.code && p.top === q.top && p.roof === q.roof && ['l0', 'l1', 'r0', 'r1'].every(k => p[k].every((v, i) => v === q[k][i]));
+  const same = (p, q) => p && p.code === q.code && p.top === q.top && p.roof === q.roof && ['l0', 'l1', 'r0', 'r1', 'e0', 'e1', 'f0', 'f1'].every(k => p[k].every((v, i) => v === q[k][i]));
   if (!replay) { drawCurve.run = same(drawCurve.last, now) ? (drawCurve.run || 0) + 1 : 0; drawCurve.last = now;
     const keep = drawCurve.keep || (drawCurve.keep = {});
-    if (drawCurve.run >= 60 && !keep[code]) keep[code] = now; }   // (the first steady view only, on the start line: never replaced, a pop-up held up as long can't creep in)
+    if (drawCurve.run >= 60 && !keep[code] && now.top < 190 && now.top > 60) keep[code] = now; }   // (only a real dash: the remembered setting turns it on before the game has drawn it, and "no dash" was learned)   // (the first steady view only, on the start line: never replaced, a pop-up held up as long can't creep in)
   const C = drawCurve.keep && drawCurve.keep[code] || now;
   top = C.top; roof = C.roof;
   const A = (200 - top) * 0.35;   // (the drop at the window's edge: about a third of the dash's height)
-  for (let x = 0; x < m + 3; x++) {
-    const d = (m + 2 - x) / 220, sh = Math.round(A * d * d),   // (in the game's pixels from the picture's edge: the same curve at any width, a narrower window showing less of it)
-    k = (m + 2 - x) % 2, Lc = k ? C.l1 : C.l0, Rc = k ? C.r1 : C.r0;
-    for (let y = top + sh; y < 200; y++) { const ys = y - sh; sp[y * cw + x] = Lc[ys]; sp[y * cw + cw - 1 - x] = Rc[ys]; }
-    for (let y = 0; y < roof - sh; y++) { const ys = y + sh; sp[y * cw + x] = Lc[ys]; sp[y * cw + cw - 1 - x] = Rc[ys]; }
+  let waterC = 0; if (solidUp) for (let y = top - 1; y >= 0; y--) if (solidUp[y]) { waterC = rgb[scr[y * 320]]; break; }
+  const put = (X, Y, c) => { sp[Y * W + X] = c; sp[Y * W + W - 1 - X] = c; };
+  if (solidUp) for (let y = 0; y < top; y++) if (solidUp[y]) { const c = rgb[scr[y * 320]]; for (let Y = y * SS; Y < (y + 1) * SS; Y++) for (let X = 0; X < (m + 3) * SS; X++) put(X, Y, c); }
+  for (let X = 0; X < (m + 3) * SS; X++) {
+    const x = X / SS, d = (m + 2 - x) / 220, sh = A * d * d * SS,   // (in the game's pixels from the picture's edge: the same curve at any width, a narrower window showing less of it)
+    k = Math.floor(m + 2 - x) % 2, Lc = k ? C.l1 : C.l0, Rc = k ? C.r1 : C.r0, T0 = Math.round(top * SS + sh), R0 = Math.round(roof * SS - sh);
+    if (waterC) for (let Y = top * SS; Y < T0; Y++) put(X, Y, waterC);   // (drowning: the water down to the curve, no gap above it)
+    for (let Y = T0; Y < H; Y++) { const ys = Math.min(199, Math.floor((Y - sh) / SS)); sp[Y * W + X] = Lc[ys]; sp[Y * W + W - 1 - X] = Rc[ys]; }
+    const Le = k ? C.e1 : C.e0, Re = k ? C.f1 : C.f0;   // (the roof strip from its own outer edge: the dash's column can fall on another part of it)
+    for (let Y = 0; Y < R0; Y++) { const ys = Math.max(0, Math.floor((Y + sh) / SS)); sp[Y * W + X] = Le[ys]; sp[Y * W + W - 1 - X] = Re[ys]; }
   }
   sidesG.putImageData(sidesCanvas.img, 0, 0);
 }
@@ -467,15 +473,26 @@ function frame(t) {   // t: the display frame's time (steadier than reading the 
     else if (inRace && frame.dashWas != null && mem[a] !== frame.dashWas) { try { localStorage.setItem('stunts-dash', String(mem[a])); } catch (_) {} }
     frame.wasRace = inRace; frame.dashWas = inRace ? mem[a] : null; }
   if (WIDE && view) {
-    const dash = live && view.raceView && !og && !!mem[(StuntsCode.DSEG << 4) + StuntsCode.SYM.dashb_toggle];
+    const dash = live && keyed && view.raceView && !og && !!mem[(StuntsCode.DSEG << 4) + StuntsCode.SYM.dashb_toggle];   // (keyed: only while the 3D view shows this very frame: leaving for a menu, the sides went with the picture, not a few frames later)
     const race = live && (view.raceView || view.previewView), side = (1 - 1 / (view.wide || 1)) / 2 * 100;
     const pts = [];
     let wideRows = 0;
     // (?dash=open|tex|both|hood: widescreen dashboard mockups. open: the windscreen rows (any see-through) wide, the 3D view out
     // to the sides; tex: the dash body carried out in its own pattern, mirrored; hood: the 3D view across all of it)
     const DM = dash ? DASHM : '', dashRow = new Uint8Array(200);
+    // (curve: a row above the dash (its height as remembered for this car) that the game paints one solid colour edge to
+    // edge (drowning's blue): left closed, and carried out to the sides as it is; the dash's own rows never count)
+    const solidUp = new Uint8Array(200);
+    if (DM === 'curve') { const D0 = StuntsCode.DSEG << 4, G0 = StuntsCode.SYM.gameconfig, code0 = String.fromCharCode(...mem.subarray(D0 + G0, D0 + G0 + 4));
+      const kt = drawCurve.keep && drawCurve.keep[code0] ? drawCurve.keep[code0].top : 0;
+      for (let y = 0; y < kt; y++) { const o = y * 320, c = scr[o]; if (c === StuntsHires.KEY) continue; let ok = true;
+        for (let x = 0; x < 6 && ok; x++) if (scr[o + x] !== c || scr[o + 314 + x] !== c) ok = false; solidUp[y] = ok ? 1 : 0; }
+      // (water only when there's a lot of it: 15 rows or more of the one colour; a dash's own top line, solid edge to edge
+      // just above it, filled the gap over the curve with brown)
+      { const n = new Map(); for (let y = 0; y < kt; y++) if (solidUp[y]) { const c = scr[y * 320]; n.set(c, (n.get(c) || 0) + 1); }
+        for (let y = 0; y < kt; y++) if (solidUp[y] && n.get(scr[y * 320]) < 15) solidUp[y] = 0; } }
     if (DM === 'curve') for (let y = 0; y < 200; y++) dashRow[y] = edge[y] !== 2 && rowKey[y] <= 12 ? 1 : 0;
-    for (let y = 0; y < 200; y++) if (race && (edge[y] === 2 || DM === 'curve' || rowKey[y] > 240 || DM === 'hood' || (DM === 'open' || DM === 'both') && rowKey[y] > 12)) { edge[y] = 2; wideRows++; }
+    for (let y = 0; y < 200; y++) if (race && (edge[y] === 2 || DM === 'curve' && !solidUp[y] || rowKey[y] > 240 || DM === 'hood' || (DM === 'open' || DM === 'both') && rowKey[y] > 12)) { edge[y] = 2; wideRows++; }
     if (wideRows === 200) pts.push('none');
     else {
       // down the left side band by band, then up the right
@@ -499,7 +516,7 @@ function frame(t) {   // t: the display frame's time (steadier than reading the 
     sidesCanvas.hidden = (!dash || DM === 'hood') && !solidAny;
     const curve = DM === 'curve';
     if (dash && DM !== 'hood' || solidAny) {
-      if (curve) { drawCurve(dashRow); } else {
+      if (curve) { drawCurve(dashRow, solidUp); } else {
       const cw = Math.max(320, Math.round(320 * (view.wide || 1))), m = (cw - 320) >> 1;
       if (sidesCanvas.width !== cw) { sidesCanvas.width = cw; sidesCanvas.height = 200; sidesCanvas.img = sidesG.createImageData(cw, 200); sidesCanvas.px = new Uint32Array(sidesCanvas.img.data.buffer); }
       const sp = sidesCanvas.px; sp.fill(0);

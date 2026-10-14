@@ -2354,7 +2354,7 @@ void main() {
       // (glass: the shine (spin 0.25, see the car's shading) only on dark neutral faces reaching up to the roof line, the
       // top 38% of the car's height (windscreens, side and rear windows); below, a dark grey face is a grille, bumper or rear panel)
       if (wheels) for (const p of prims) if (!p.wheel && p.tri.length && topY(p) > ywin) p.glass = 1;
-      if (wheels) for (const p of prims) if (seeThrough(p.pat) && p.poly && !p.wheel && p.tri.length && topY(p) > ywin) { p.pat = 0xFFFF; if (p.c && Math.max(...p.c) - Math.min(...p.c) < 0.15) p.c = [0.2, 0.2, 0.2]; }   // (a dotted lamp, red, stays its colour)
+      if (wheels) for (const p of prims) if (seeThrough(p.pat) && p.poly && !p.wheel && p.tri.length) { p.pat = 0xFFFF; if (topY(p) > ywin && p.c && Math.max(...p.c) - Math.min(...p.c) < 0.15) p.c = [0.2, 0.2, 0.2]; }   // (every dotted face solid (seen through, the inside of the car and a wheel showed: the Acura's side intake); only windows, up to the roof line, as dark glass: a lower one (the DAF's grille) keeps its colour)
       // a level one-sided face up off the ground (a tunnel's roof, a deck's underside) is drawn from both sides:
       // the original shows a tunnel's roof only from inside, so from outside it looked roofless
       for (const p of prims) if (p.one && p.level && !p.rank && p.tri.length) { let y = 0; for (let k = 1; k < p.tri.length; k += 3) y += p.tri[k]; if (y / (p.tri.length / 3) > y0 + 100) p.one = 0; }
