@@ -393,10 +393,14 @@
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.log}Changelog</button>
         <div class="pop">
           <h2>Changelog</h2>
-          <p><b>v1.5.6</b> &middot; Oct 13 2026</p>
+          <p><b>v1.5.7</b> &middot; Oct 14 2026</p>
           <ul>
-            <li>OG mode: the picture's black side bars are back where they belong.</li>
+            <li>Widescreen in-car view: the dashboard wraps round the sides on a gentle curve, without its gauges copied out.</li>
+            <li>Dashboard on or off (<kbd>D</kbd>) is remembered from race to race.</li>
           </ul>
+          <details><summary>v1.5.6 &middot; Oct 13 2026</summary><ul>
+            <li>OG mode: the picture's black side bars are back where they belong.</li>
+          </ul></details>
           <details><summary>v1.5.5 &middot; Oct 13 2026</summary><ul>
             <li>In-car view: no tyre marks in front of the camera, and drowning fills the whole screen.</li>
           </ul></details>

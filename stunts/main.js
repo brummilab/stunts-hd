@@ -127,6 +127,41 @@ const bgImg = bgG.createImageData(320, 200), bgPx = new Uint32Array(bgImg.data.b
   } }
 const view = HIRES ? new HiresView(glCanvas, mem, pal, scene, StuntsCode.DSEG, StuntsCode.SYM, MODERN ? { world, bg } : {}) : null;
 const NOHUD = /[?&]nohud/.test(location.search);
+const DASHM = ((/[?&]dash=(\w+)/.exec(location.search) || [])[1] || 'curve');   // (the widescreen dashboard: curve, the default; ?dash=flat the old flat colours)
+// (?dash=curve: the dashboard carried out to the sides bending down: each column further out drawn lower, on a curve that
+// takes it off the bottom of the screen; above it the 3D view. Its pixels: the car's plain column (DASH_COLS), as tex)
+function drawCurve(dashRow) {
+  const cw = Math.max(320, Math.round(320 * (view.wide || 1))), m = (cw - 320) >> 1;
+  if (sidesCanvas.width !== cw) { sidesCanvas.width = cw; sidesCanvas.height = 200; sidesCanvas.img = sidesG.createImageData(cw, 200); sidesCanvas.px = new Uint32Array(sidesCanvas.img.data.buffer); }
+  const sp = sidesCanvas.px; sp.fill(0);
+  const D = StuntsCode.DSEG << 4, G = StuntsCode.SYM.gameconfig, code = String.fromCharCode(...mem.subarray(D + G, D + G + 4));
+  const cols = DASH_COLS[code] || { l: 0, r: 318 }, K = StuntsHires.KEY;
+  // (the dashboard: the block of rows at the bottom, bending down off the screen; the roof strip at the top, if the car has
+  // one, bending up off it the opposite way: both on the same gentle curve, so the cockpit wraps round the view)
+  let top = 200; while (top > 0 && dashRow[top - 1]) top--;
+  let roof = 0; while (roof < top && dashRow[roof]) roof++;
+  // (the two columns copied, remembered per car the first time they stand unchanged a second, outside a replay: whatever the
+  // game draws over the dash meanwhile (the replay panel, the gear change's pop-up) is never carried out to the sides)
+  const colOf = c => { const a = new Uint32Array(200); for (let y = 0; y < 200; y++) { const v = scr[y * 320 + c]; a[y] = v === K ? 0 : rgb[v]; } return a; };
+  const now = { code, top, roof, l0: colOf(cols.l), l1: colOf(cols.l + 1), r0: colOf(cols.r), r1: colOf(cols.r - 1) };
+  const D2 = (StuntsCode.DSEG << 4), replay = !!mem[D2 + StuntsCode.SYM.game_replay_mode];
+  const same = (p, q) => p && p.code === q.code && p.top === q.top && p.roof === q.roof && ['l0', 'l1', 'r0', 'r1'].every(k => p[k].every((v, i) => v === q[k][i]));
+  if (!replay) { drawCurve.run = same(drawCurve.last, now) ? (drawCurve.run || 0) + 1 : 0; drawCurve.last = now;
+    const keep = drawCurve.keep || (drawCurve.keep = {});
+    if (drawCurve.run >= 60 && !keep[code]) keep[code] = now; }   // (the first steady view only, on the start line: never replaced, a pop-up held up as long can't creep in)
+  const C = drawCurve.keep && drawCurve.keep[code] || now;
+  top = C.top; roof = C.roof;
+  const A = (200 - top) * 0.35;   // (the drop at the window's edge: about a third of the dash's height)
+  for (let x = 0; x < m + 3; x++) {
+    const d = (m + 2 - x) / 220, sh = Math.round(A * d * d),   // (in the game's pixels from the picture's edge: the same curve at any width, a narrower window showing less of it)
+    k = (m + 2 - x) % 2, Lc = k ? C.l1 : C.l0, Rc = k ? C.r1 : C.r0;
+    for (let y = top + sh; y < 200; y++) { const ys = y - sh; sp[y * cw + x] = Lc[ys]; sp[y * cw + cw - 1 - x] = Rc[ys]; }
+    for (let y = 0; y < roof - sh; y++) { const ys = y + sh; sp[y * cw + x] = Lc[ys]; sp[y * cw + cw - 1 - x] = Rc[ys]; }
+  }
+  sidesG.putImageData(sidesCanvas.img, 0, 0);
+}
+const DASH_COLS = { ANSX: { l: 5, r: 243 }, AUDI: { l: 33, r: 317 }, COUN: { l: 46, r: 314 }, FGTO: { l: 10, r: 301 }, JAGU: { l: 68, r: 294 },
+  LANC: { l: 32, r: 269 }, LM02: { l: 7, r: 316 }, P962: { l: 1, r: 318 }, PC04: { l: 0, r: 244 }, PMIN: { l: 0, r: 310 }, VETT: { l: 42, r: 318 } };
 // H: HD mode or OG mode, the original's own pictures (the worker reads the shared flag; kept for next time)
 const ogFlag = new SharedArrayBuffer(16), ogI = new Int32Array(ogFlag);   // ([0] the look (OG), [1] > 0 while the game reads typed text: a high-score name, a save name)
 const typing = () => Atomics.load(ogI, 1) > 0;
@@ -426,12 +461,21 @@ function frame(t) {   // t: the display frame's time (steadier than reading the 
   // the race view goes past the 4:3 frame on the rows where the screen shows it edge to edge (not the
   // dashboard, D: the cockpit is only that wide); menus, dialogs, panels and the results keep to the frame,
   // from the moment they are on screen
+  // (the dashboard on or off (D) kept from race to race: saved when it changes in a race, put back as each race starts)
+  if (view) { const a = (StuntsCode.DSEG << 4) + StuntsCode.SYM.dashb_toggle, inRace = !!(live && view.raceView);
+    if (inRace && !frame.wasRace) { try { const v = localStorage.getItem('stunts-dash'); if (v != null) mem[a] = +v; } catch (_) {} }
+    else if (inRace && frame.dashWas != null && mem[a] !== frame.dashWas) { try { localStorage.setItem('stunts-dash', String(mem[a])); } catch (_) {} }
+    frame.wasRace = inRace; frame.dashWas = inRace ? mem[a] : null; }
   if (WIDE && view) {
     const dash = live && view.raceView && !og && !!mem[(StuntsCode.DSEG << 4) + StuntsCode.SYM.dashb_toggle];
     const race = live && (view.raceView || view.previewView), side = (1 - 1 / (view.wide || 1)) / 2 * 100;
     const pts = [];
     let wideRows = 0;
-    for (let y = 0; y < 200; y++) if (race && (edge[y] === 2 || rowKey[y] > 240)) { edge[y] = 2; wideRows++; }
+    // (?dash=open|tex|both|hood: widescreen dashboard mockups. open: the windscreen rows (any see-through) wide, the 3D view out
+    // to the sides; tex: the dash body carried out in its own pattern, mirrored; hood: the 3D view across all of it)
+    const DM = dash ? DASHM : '', dashRow = new Uint8Array(200);
+    if (DM === 'curve') for (let y = 0; y < 200; y++) dashRow[y] = edge[y] !== 2 && rowKey[y] <= 12 ? 1 : 0;
+    for (let y = 0; y < 200; y++) if (race && (edge[y] === 2 || DM === 'curve' || rowKey[y] > 240 || DM === 'hood' || (DM === 'open' || DM === 'both') && rowKey[y] > 12)) { edge[y] = 2; wideRows++; }
     if (wideRows === 200) pts.push('none');
     else {
       // down the left side band by band, then up the right
@@ -452,19 +496,35 @@ function frame(t) {   // t: the display frame's time (steadier than reading the 
       for (let x = 0; x < 6; x++) if (scr[o + x] !== c || scr[o + 314 + x] !== c) return false; return true; };
     let solidAny = false;
     if (!dash && !og && keyed && race && view.raceView) for (let y = 0; y < 200; y++) if (edge[y] !== 2 && solidRow(y)) { solidAny = true; break; }
-    sidesCanvas.hidden = !dash && !solidAny;
-    if (dash || solidAny) {
+    sidesCanvas.hidden = (!dash || DM === 'hood') && !solidAny;
+    const curve = DM === 'curve';
+    if (dash && DM !== 'hood' || solidAny) {
+      if (curve) { drawCurve(dashRow); } else {
       const cw = Math.max(320, Math.round(320 * (view.wide || 1))), m = (cw - 320) >> 1;
       if (sidesCanvas.width !== cw) { sidesCanvas.width = cw; sidesCanvas.height = 200; sidesCanvas.img = sidesG.createImageData(cw, 200); sidesCanvas.px = new Uint32Array(sidesCanvas.img.data.buffer); }
       const sp = sidesCanvas.px; sp.fill(0);
       const near = (r, g_, b_) => { let best = 0xFF000000, bd = 1e9; for (let i = 0; i < 256; i++) { const c = rgb[i], d = ((c & 255) - r) ** 2 + (((c >>> 8) & 255) - g_) ** 2 + (((c >>> 16) & 255) - b_) ** 2; if (d < bd) { bd = d; best = c; } } return best; };
       const row = (y, x0) => { let r = 0, g_ = 0, b_ = 0; for (let x = x0; x < x0 + 6; x++) { const c = scr[y * 320 + x] === StuntsHires.KEY && mk[y * 320 + x] ? 0 : rgb[scr[y * 320 + x]]; r += c & 255; g_ += (c >>> 8) & 255; b_ += (c >>> 16) & 255; } return near(r / 6, g_ / 6, b_ / 6); };
+      // (the surface's colours: those making up a good share of the dash's own rows; for each side the column, within 72 of
+      // its edge, with the most rows of those colours (nearest the edge on a tie): it runs between the gauges, not through them)
+      // (each car's dashboard: a column near each edge, picked by hand, that runs through plain panel only (no gauges,
+      // vents or switches); its pixels and its neighbour's (the grain) carried out to the sides. Unknown (add-on) cars:
+      // the outermost columns)
+      const carCode = String.fromCharCode(...mem.subarray((StuntsCode.DSEG << 4) + StuntsCode.SYM.gameconfig, (StuntsCode.DSEG << 4) + StuntsCode.SYM.gameconfig + 4));
+      const dashCols = DASH_COLS[carCode] || { l: 0, r: 318 };
       for (let y = 0; y < 200; y++) {
         if (edge[y] === 2 || (!dash && !solidRow(y))) continue;
         const L = row(y, 0), R = row(y, 314), o = y * cw;
-        for (let x = 0; x < m + 3; x++) { sp[o + x] = L; sp[o + cw - 1 - x] = R; }   // (on a little under the picture: no gap where they meet)
+        if (DM === 'tex' || DM === 'both') {
+          // (the dash's own surface carried out: a column near each edge that runs through surface only, its pixels and its
+          // neighbour's (the grain) repeated outwards; chosen once a frame, below)
+          const cl = dashCols.l, cr = dashCols.r, at = c => { const v = scr[y * 320 + c]; return v === StuntsHires.KEY ? 0 : rgb[v]; };
+          for (let x = 0; x < m + 3; x++) { const k = (m + 2 - x) % 2;
+            sp[o + x] = at(cl + k) || L; sp[o + cw - 1 - x] = at(cr - k) || R; }
+        } else for (let x = 0; x < m + 3; x++) { sp[o + x] = L; sp[o + cw - 1 - x] = R; }   // (on a little under the picture: no gap where they meet)
       }
       sidesG.putImageData(sidesCanvas.img, 0, 0);
+      }
     }
   }
   if (live) {
