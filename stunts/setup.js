@@ -392,10 +392,14 @@
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.log}Changelog</button>
         <div class="pop">
           <h2>Changelog</h2>
-          <p><b>v1.5.9</b> &middot; Oct 15 2026</p>
+          <p><b>v1.5.10</b> &middot; Oct 15 2026</p>
           <ul>
-            <li>Replays recorded in DOS play back as recorded again: one stopped with "divide by zero", and the bump-bug fix sent others off course, so it's off for now.</li>
+            <li>Checked against all 6,907 replays in Chocolate Stunts' test pack: every one plays back exactly as in DOS.</li>
+            <li>OG mode: the in-car dashboard's edge is drawn exactly as the original draws it, without a stray line of pixels.</li>
           </ul>
+          <details><summary>v1.5.9 &middot; Oct 15 2026</summary><ul>
+            <li>Replays recorded in DOS play back as recorded again: one stopped with "divide by zero", and the bump-bug fix sent others off course, so it's off for now.</li>
+          </ul></details>
           <details><summary>v1.5.8 &middot; Oct 14 2026</summary><ul>
             <li>Widescreen in-car view: the dashboard wraps round the sides on a smooth, gentle curve, without its gauges copied out, and goes with the picture when you leave a race.</li>
             <li>Dashboard on or off (<kbd>D</kbd>) is remembered from race to race.</li>
