@@ -178,7 +178,8 @@ onmessage = async e => {
   // pulls left for good. Here, after the original's own update, a value stuck in -15..-1 shrinks as a positive one does.
   // Not in a replay: a replay is the race driven again from its keys, and one recorded in DOS hit the bug there
   // (mr-finster/stunts-hd#1: 0051 left the road and drowned)
-  const BUMPFIX = true;   // (turned off 2026-10-15 for issue 1's 0051, but that replay drifts without it too)
+  // Off for now (2026-10-15): it changed the physics replays recorded in DOS were made with; kept to turn back on
+  const BUMPFIX = false;
   { const ug = StuntsCode.P.update_grip; if (BUMPFIX && ug) StuntsCode.P.update_grip = function (r, m, P, e) {
     const cs = pc.rw(r.ss, (r.sp + 4) & 0xFFFF), ret = ug(r, m, P, e), Dg = StuntsCode.DSEG;
     let w = pc.rw(Dg, cs + 54); if (w > 32767) w -= 65536;
