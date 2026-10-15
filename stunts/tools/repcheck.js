@@ -13,7 +13,11 @@
 //     the original's renderer or the page's (hires-capture.js; KEEP=1 keeps the original's running under it).
 //     PDO=<dir> writes the screen hashes as pixldumo.exe does (STEM.PDO, to compare with its); STATES=<dir> writes
 //     every frame's state (STEM.ST) and reports the first difference; NOBIN=1 runs without a .BIN
-//   WATCH=<DSEG offset> WFRAME=<n>: who writes there in frame n (debugging)
+//   SPADJ=<bytes> runs the frames with the stack that much deeper: the original's penalty check (detect_penalty) can
+//     mark a route piece as seen at a wild index, a byte written wherever the stack's place puts it (2155-2164 in
+//     Chocolate Stunts' replays desync here by default, and play as in DOS with the stack 16 bytes or more deeper)
+// debugging: WATCH=<DSEG offset> WFRAME=<n> who writes there in frame n; WATCHALL=<DSEG offset> every write there;
+//   SCAN=1 WFRAME=<n> nudges each byte frame n reads, one at a time, and names those that change it (or match DOS)
 'use strict';
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..');
@@ -58,6 +62,11 @@ function run(rpl, junk) {
   let vt = 0;
   const pc = new StuntsPC(C, { files, now: () => vt, log: s => { if (process.env.VERBOSE) console.log('[dos]', s); }, onExit: c => { throw new HostExit(c); } });
   pc.hook = () => { vt += 0.5; };
+  if (process.env.WATCHALL) {   // (debugging: every write to DSEG:WATCHALL, from the start)
+    const lin = (D << 4) + +process.env.WATCHALL;
+    for (const fn of ['wb', 'ww', 'wd']) { const o = pc[fn]; pc[fn] = function (sg, of, v) { const a = ((sg << 4) + (of & 0xFFFF)) & 0xFFFFF, w = fn === 'wb' ? 1 : fn === 'ww' ? 2 : 4; if (lin >= a && lin < a + w) console.log('WRITE', fn, 'at', a.toString(16), sg.toString(16) + ':' + (of & 0xFFFF).toString(16), 'value', v, 'frame', pc.rw(D, SYM.state + GS.fields.game_frame), new Error().stack.split('\n').filter(l => /P\./.test(l)).slice(0, 8).map(l => l.trim().split(' ')[1]).join(' < ')); return o.call(this, sg, of, v); }; }
+    const ostr = pc.str; if (ostr) pc.str = function (...a) { const before = pc.mem[lin]; const ret = ostr.apply(this, a); if (pc.mem[lin] !== before) console.log('STRING-OP wrote', pc.mem[lin], new Error().stack.split('\n').filter(l => /P\./.test(l)).slice(0, 8).map(l => l.trim().split(' ')[1]).join(' < ')); return ret; };
+  }
   const P = C.P, rb = o => pc.rb(D, o), rw = o => pc.rw(D, o), wb = (o, v) => pc.wb(D, o, v), ww = (o, v) => pc.ww(D, o, v);
   P.fatal_error = function (r, m) { throw new HostExit('fatal: ' + m.cstr(r.ds, m.rw(r.ss, r.sp + 4))); };
   if (process.env.BUMPFIX) { const ug = P0.update_grip; P.update_grip = function (r, m, PP, e) {   // (the page's bump-bug fix, as worker.js has it)
@@ -104,6 +113,7 @@ function run(rpl, junk) {
     const pdo = process.env.PDO ? ['PIXLDUMP 2'] : null;
     if (RENDER) { call('init_rect_arrays'); wb(SYM.byte_454A4, 1); draw(); }
     if (bin && frames !== want) { result = 'DESYNC ' + stem + ' recorded frames ' + frames + ' vs ' + want; throw new HostExit('done'); }
+    if (process.env.SPADJ) r.sp = (r.sp - +process.env.SPADJ) & 0xFFFF;   // (debugging: the stack deeper by SPADJ bytes for the frames)
     let n = 0;
     while (frames > rw(fr)) {
       call('input_do_checking', 1);
@@ -113,6 +123,30 @@ function run(rpl, junk) {
         for (const fn of ['wb', 'ww']) { const o = pc[fn]; pc[fn] = function (sg, of, v) { const a = ((sg << 4) + of) & 0xFFFFF; if (a === lin || (fn === 'ww' && a + 1 === lin)) console.log('WRITE', fn, v, new Error().stack.split('\n').filter(l => /P\./.test(l)).slice(0, 8).map(l => l.trim().split(' ')[1]).join(' < ')); return o.call(this, sg, of, v); }; }
       }
       r.si = process.env.SIV != null ? +process.env.SIV : 80;   // (SI as repldumo's dump loop has it, 80: the physics can read SI as update_grip saved it, for a wheel's contact distance)
+      if (process.env.SCAN && n === +process.env.WFRAME) {   // (debugging: which bytes read in frame WFRAME change it; nudged one at a time from a snapshot)
+        const mem0 = pc.mem.slice(), r0 = Object.assign({}, r), want1 = bin.subarray(2 + n * size, 2 + (n + 1) * size);
+        const reads = new Map(), orb = pc.rb, orw = pc.rw, rd = pc.rd;
+        const lin = (sg, of) => ((sg << 4) + (of & 0xFFFF)) & 0xFFFFF;
+        pc.rb = function (sg, of) { const a = lin(sg, of); if (!reads.has(a)) reads.set(a, this.mem[a]); return orb.call(this, sg, of); };
+        pc.rw = function (sg, of) { for (const a of [lin(sg, of), lin(sg, of + 1)]) if (!reads.has(a)) reads.set(a, this.mem[a]); return orw.call(this, sg, of); };
+        call('update_gamestate');
+        const base1 = pc.mem.slice((D << 4) + st, (D << 4) + st + size);
+        pc.rb = orb; pc.rw = orw;
+        const ss = (r0.ss << 4), stack = a => a >= ss + ((r0.sp - 4096) & 0xFFFF) && a < ss + 0x10000 && (r.ss === r0.ss);
+        console.log('bytes read', reads.size);
+        let hits = 0;
+        for (const [a, v] of reads) {
+          for (const dv of [1, 0x40]) {
+            pc.mem.set(mem0); Object.assign(r, r0); pc.mem[a] = v ^ dv;
+            call('update_gamestate');
+            const got = pc.mem.subarray((D << 4) + st, (D << 4) + st + size);
+            let same = true, match = true; for (let i = 0; i < size; i++) { if (got[i] !== base1[i]) same = false; if (got[i] !== want1[i]) match = false; }
+            if (match) console.log('MATCHES DOS when', a.toString(16), 'is', (v ^ dv), 'not', v, (a >> 4).toString(16) + ':' + (a & 15).toString(16), 'DSEG+' + (a - (D << 4)));
+            if (!same && hits++ < 400 && !stack(a)) console.log('changes', a.toString(16), 'DSEG+' + (a - (D << 4)), 'value', v);
+          }
+        }
+        throw new HostExit('scan done');
+      }
       call('update_gamestate');
       if (RENDER) draw();
       if (process.env.STATES) { for (let i = 0; i < size; i++) states.push(rb(st + i)); n++; continue; }
