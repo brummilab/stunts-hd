@@ -95,27 +95,29 @@
 
     // OG mode in a race: which of the screen's pixels are the original's 3D view, for the page to draw the ghost car
     // on (bg + 256000: 1 there), not on the dashboard or anything else drawn over the view. Once the original has
-    // painted the view, its pixels are kept aside and made see-through, as in the modern view; what is still
-    // see-through when the frame goes to the screen is the view, and gets its pixels back.
+    // painted the view, its pixels are copied aside; what still matches them when the frame goes to the screen is the
+    // view. The game's own pixels are never touched: the cockpit's mask is ORed onto the view, and a view made
+    // see-through for it (key colour 233) came out 233 | 29 = 253 where the original has 28 | 29 = 29
+    // (mr-finster/stunts-hd#1: 2954, a line of wrong pixels along the dashboard's edge)
     let ogRect = null, ogKeyed = false, ogMarked = false;
     const ogKept = new Uint8Array(64000), ogMark = new Uint8Array(64000);
     function ogKey() {
       const [L, R, T, Bt] = ogRect;
       for (let y = Math.max(0, T); y < Math.min(200, Bt); y++) {
         const a = rowAddr(y);
-        for (let x = Math.max(0, L); x < Math.min(320, R); x++) { const v = pc.mem[a + x]; if (v !== KEY) { ogKept[y * 320 + x] = v; pc.mem[a + x] = KEY; } }
+        for (let x = Math.max(0, L); x < Math.min(320, R); x++) ogKept[y * 320 + x] = pc.mem[a + x];
       }
       ogKeyed = true;
     }
     // (at the frame's first copy to the screen; another copy in the same frame (the dashboard's needles) leaves the marks;
-    // a frame drawn without the view keyed (the modern look, menus, a paused race drawn again) clears them, see update_frame)
+    // a frame drawn without the view kept (the modern look, menus, a paused race drawn again) clears them, see update_frame)
     function ogRestore() {
       if (!ogKeyed) return;
       const [L, R, T, Bt] = ogRect;
       ogMark.fill(0);
       for (let y = Math.max(0, T); y < Math.min(200, Bt); y++) {
         const a = rowAddr(y);
-        for (let x = Math.max(0, L); x < Math.min(320, R); x++) if (pc.mem[a + x] === KEY) { pc.mem[a + x] = ogKept[y * 320 + x]; ogMark[y * 320 + x] = 1; }
+        for (let x = Math.max(0, L); x < Math.min(320, R); x++) if (pc.mem[a + x] === ogKept[y * 320 + x]) ogMark[y * 320 + x] = 1;
       }
       B.set(ogMark, 256000); ogKeyed = false; ogMarked = true;
     }
