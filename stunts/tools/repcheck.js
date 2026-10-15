@@ -12,7 +12,8 @@
 //   RENDER=og|hd draws every frame too, as Chocolate Stunts' pixldump does (camera CAM, default 1, whole screen), with
 //     the original's renderer or the page's (hires-capture.js; KEEP=1 keeps the original's running under it).
 //     PDO=<dir> writes the screen hashes as pixldumo.exe does (STEM.PDO, to compare with its); STATES=<dir> writes
-//     every frame's state (STEM.ST) and reports the first difference; NOBIN=1 runs without a .BIN
+//     every frame's state (STEM.ST) and reports the first difference; NOBIN=1 runs without a .BIN; SHOT=<dir> SHOTF=<n,n,...> those
+//     frames as PNGs
 //   SPADJ=<bytes> runs the frames with the stack that much deeper: the original's penalty check (detect_penalty) can
 //     mark a route piece as seen at a wild index, a byte written wherever the stack's place puts it (2155-2164 in
 //     Chocolate Stunts' replays desync here by default, and play as in DOS with the stack 16 bytes or more deeper)
@@ -48,6 +49,15 @@ function murmur3(b) {   // MurmurHash3_x86_32, seed 0 (Chocolate Stunts' pixldum
   if (t >= 3) k ^= b[n + 2] << 16; if (t >= 2) k ^= b[n + 1] << 8; if (t >= 1) { k ^= b[n]; k = Math.imul(k, 0xcc9e2d51); k = k << 15 | k >>> 17; k = Math.imul(k, 0x1b873593); h ^= k; }
   h ^= b.length; h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
   return (h >>> 0).toString(16).padStart(8, '0');
+}
+
+function png(pc, file) {   // the 320x200 screen, as tools/run.js writes it
+  const zlib = require('zlib'), w = 320, h = 200, raw = Buffer.alloc((w * 3 + 1) * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const c = pc.mem[0xA0000 + y * w + x], o = y * (w * 3 + 1) + 1 + x * 3; for (let k = 0; k < 3; k++) raw[o + k] = pc.pal[c * 3 + k] * 255 / 63; }
+  const crc = b => { let c = ~0; for (const x of b) { c ^= x; for (let k = 0; k < 8; k++) c = c >>> 1 ^ (0xEDB88320 & -(c & 1)); } return ~c >>> 0; };
+  const chunk = (t, d) => { const l = Buffer.alloc(4); l.writeUInt32BE(d.length); const td = Buffer.concat([Buffer.from(t), d]); const c = Buffer.alloc(4); c.writeUInt32BE(crc(td)); return Buffer.concat([l, td, c]); };
+  const ih = Buffer.alloc(13); ih.writeUInt32BE(w, 0); ih.writeUInt32BE(h, 4); ih[8] = 8; ih[9] = 2;
+  fs.writeFileSync(file, Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ih), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]));
 }
 
 function run(rpl, junk) {
@@ -109,7 +119,7 @@ function run(rpl, junk) {
     const frames = rw(gc + GI.fields.game_recordedframes);
     call('restore_gamestate', frames);
     const st = SYM.state, fr = st + GS.fields.game_frame;
-    const draw = () => { call('sprite_copy_wnd_to_1'); call('update_frame', 0, rw0); call('sub_19F14', rw0); call('mouse_draw_opaque_check'); if (rb(SYM.byte_454A4)) wb(SYM.byte_454A4, rb(SYM.byte_454A4) - 1); if (pdo) pdo.push(rw(fr) + ' ' + murmur3(pc.mem.subarray(0xA0000, 0xA0000 + 64000))); };
+    const draw = () => { call('sprite_copy_wnd_to_1'); call('update_frame', 0, rw0); call('sub_19F14', rw0); call('mouse_draw_opaque_check'); if (rb(SYM.byte_454A4)) wb(SYM.byte_454A4, rb(SYM.byte_454A4) - 1); if (pdo) pdo.push(rw(fr) + ' ' + murmur3(pc.mem.subarray(0xA0000, 0xA0000 + 64000))); if (process.env.SHOT && (',' + process.env.SHOTF + ',').includes(',' + rw(fr) + ',')) png(pc, path.join(process.env.SHOT, stem + '-' + rw(fr) + '.png')); };
     const pdo = process.env.PDO ? ['PIXLDUMP 2'] : null;
     if (RENDER) { call('init_rect_arrays'); wb(SYM.byte_454A4, 1); draw(); }
     if (bin && frames !== want) { result = 'DESYNC ' + stem + ' recorded frames ' + frames + ' vs ' + want; throw new HostExit('done'); }
