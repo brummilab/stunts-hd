@@ -104,7 +104,7 @@ with WebGL at display resolution, interpolated between the game's own frames.
 | `stunts/hires-view.js` | redraws it in HD (three.js): shadows, interpolation, widescreen |
 | `stunts/qol.js`, `setup.js` | ghosts, track sharing, settings, the welcome screen |
 | `desktop/` | the same game as a desktop app (Electron) |
-| `stunts/tools/` | headless test runner (`qa.mjs`), geometry gap checker (`gaps.*`), site build (`site.py`) |
+| `stunts/tools/` | headless test runner (`qa.mjs`), replay check against DOS (`repcheck.js`), geometry gap checker (`gaps.*`), site build (`site.py`) |
 
 ## Run it yourself
 
