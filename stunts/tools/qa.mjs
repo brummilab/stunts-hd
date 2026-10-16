@@ -2,6 +2,7 @@
 // taps, waits) and records screenshots, single or in bursts (for motion: shadows, clouds, camera).
 //
 //   node stunts/tools/qa.mjs <script.json> <outdir> [--url URL] [--size 1280x600] [--port 9240]
+//   (Chrome: found where it usually is on macOS, Windows and Linux; CHROME=<path> to use another)
 //
 // The server (stunts/tools/serve.py 8766) must be running. A script is a list of steps:
 //   { "wait": ms }                         wait
@@ -41,10 +42,18 @@ const [W, H] = opt('--size', '1280x600').split('x').map(Number);
 const port = +opt('--port', String(9240 + Math.floor(Math.random() * 500)));
 fs.mkdirSync(out, { recursive: true });
 
-const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+// Chrome: CHROME if set, else where it usually is on this system (Chromium on Linux too)
+const chrome = process.env.CHROME || ({
+  darwin: ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'],
+  win32: [path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Google/Chrome/Application/chrome.exe'),
+    path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Google/Chrome/Application/chrome.exe'),
+    path.join(process.env.LOCALAPPDATA || '', 'Google/Chrome/Application/chrome.exe')],
+}[process.platform] || ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser'])
+  .find(p => fs.existsSync(p));
+if (!chrome) { console.error('Chrome not found: set CHROME to its path'); process.exit(2); }
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'stunts-qa-'));
 const proc = spawn(chrome, ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, `--window-size=${W},${H}`,
-  '--enable-gpu', '--use-angle=metal', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader',
+  '--enable-gpu', ...(process.platform === 'darwin' ? ['--use-angle=metal'] : []), ...(process.getuid && process.getuid() === 0 ? ['--no-sandbox'] : []), '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader',
   '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows',
   '--autoplay-policy=no-user-gesture-required', '--mute-audio', '--no-first-run', '--no-default-browser-check', 'about:blank'], { stdio: 'ignore' });
 const sleep = ms => new Promise(r => setTimeout(r, ms));

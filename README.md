@@ -111,8 +111,12 @@ with WebGL at display resolution, interpolated between the game's own frames.
 Nothing of the game is in this repository. You need:
 
 1. your own copy of Stunts 1.1 (the game's files, or a zip of them);
-2. a checkout of [Restunts](https://github.com/4d-stunts/restunts) in `vendor/restunts`, to build `map.json`:
-   `python3 stunts/tools/mkmap.py`;
+2. a checkout of [Restunts](https://github.com/4d-stunts/restunts) in `vendor/restunts`, to build `map.json`
+   from the disassembly and your GAME.EXE:
+   ```sh
+   node stunts/tools/exedump.js vendor/restunts/stunts/game.exe exedump.json
+   python3 stunts/tools/mkmap.py vendor/restunts/src/restunts/asmorig exedump.json stunts/map.json vendor/restunts/stunts/game.exe
+   ```
 3. then serve with the headers the game needs (SharedArrayBuffer): `python3 stunts/tools/serve.py 8766` and
    open http://localhost:8766/stunts/.
 
