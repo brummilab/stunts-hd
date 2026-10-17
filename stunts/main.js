@@ -412,11 +412,12 @@ function dissolving(a, b) {   // the pixels changed since the last look: many, a
 // while it draws under it, putting it back after (mouse_draw_transparent, 1). The screen is copied at the display's
 // pace, so a copy in between had no pointer: it flickered in the menus and the editor (mr-finster/stunts-hd#9).
 // While it is off, the copy gets it here as the game draws it (the mask ANDed, the picture ORed, at its place);
-// only for a moment (a longer while is the game hiding it on purpose), and never in a race.
+// only for a moment (a longer while is the game hiding it on purpose), and never while driving (a replay, yes).
 let pointerOffSince = 0;
+const drivingNow = () => !!(view && view.raceView) && !mem[(StuntsCode.DSEG << 4) + StuntsCode.SYM.game_replay_mode];   // (a replay is a race view too, but with the pointer in use)
 function pointerOver(px, t) {
   const D = StuntsCode.DSEG << 4, S = StuntsCode.SYM;
-  if (!mem[D + S.kbormouse] || mem[D + S.mouse_isdirty] || (view && view.raceView)) { pointerOffSince = 0; return; }
+  if (!mem[D + S.kbormouse] || mem[D + S.mouse_isdirty] || drivingNow()) { pointerOffSince = 0; return; }
   if (!pointerOffSince) pointerOffSince = t;
   if (t - pointerOffSince > 300) return;
   const w16 = a => mem[a] | mem[a + 1] << 8, s16 = v => v << 16 >> 16;
@@ -436,6 +437,17 @@ function pointerOver(px, t) {
       }
     }
   }
+}
+// where the game's pointer is on screen (its mask's box), or null: kept see-through at the picture's left and right edges
+// below, so a pointer there (in a replay, where it moves over the 3D view) doesn't make its rows narrow
+function pointerBox() {
+  const D = StuntsCode.DSEG << 4, S = StuntsCode.SYM;
+  if (!mem[D + S.kbormouse]) return null;
+  const w16 = a => mem[a] | mem[a + 1] << 8, s16 = v => v << 16 >> 16, far = a => ((w16(a + 2) << 4) + w16(a)) & 0xFFFFF;
+  const b = far(far(D + S.mmouspriteptr)), w = w16(b), h = w16(b + 2);
+  if (!w || !h || w > 64 || h > 64) return null;
+  const x = s16(w16(D + S.mouse_xpos)), y = s16(w16(D + S.mouse_ypos));
+  return [x, y, x + w, y + h];
 }
 function frame(t) {   // t: the display frame's time (steadier than reading the clock mid-work)
   // one snapshot of the screen and the see-through marks for this whole frame: the game runs on meanwhile,
@@ -466,6 +478,12 @@ function frame(t) {   // t: the display frame's time (steadier than reading the 
     const m_ = mk[i];
     if (m_) marked++;
     if (scr[i] === StuntsHires.KEY) { anyKey = true; if (m_) { shown++; keyed = true; const x = i % 320, y = (i / 320) | 0; rowKey[y]++; if (x === 0 || x === 319) edge[y]++; } }
+  }
+  // (an edge pixel made see-through that the game's pointer now covers still counts as see-through: issue 9 / PR 6)
+  const pb = view && pointerBox();
+  if (pb) for (let y = Math.max(0, pb[1]); y < Math.min(200, pb[3]); y++) for (const x of [0, 319]) {
+    const i = y * 320 + x;
+    if (x >= pb[0] && x < pb[2] && mk[i] && scr[i] !== StuntsHires.KEY) edge[y]++;
   }
   // once 3D frames stop, marks are dropped where the screen changed, but only when the 3D view has mostly
   // gone (a menu or picture over it): a dialog or message over a paused view keeps its marks, so the view

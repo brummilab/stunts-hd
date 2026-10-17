@@ -66,7 +66,9 @@ pick your Stunts folder or zip.
 
 > [!NOTE]
 > The app isn't signed: on macOS, the first time, open it from System Settings > Privacy & Security > Open Anyway;
-> on Windows, choose More info > Run anyway.
+> on Windows, choose More info > Run anyway. On a company PC, a Microsoft Defender rule ("Block executable files
+> unless they meet a prevalence, age, or trusted list criterion") can block it outright: ask your IT team, or play in
+> the browser.
 
 ## Controls
 
