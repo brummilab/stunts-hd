@@ -392,10 +392,14 @@
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.log}Changelog</button>
         <div class="pop">
           <h2>Changelog</h2>
-          <p><b>v1.5.11</b> &middot; Oct 17 2026</p>
+          <p><b>v1.5.12</b> &middot; Oct 17 2026</p>
           <ul>
-            <li>The mouse pointer no longer flickers in the menus and the track editor (thanks, brummilab!).</li>
+            <li>Replays: the mouse works while the replay plays, so its buttons no longer need a pause first (thanks, brummilab!).</li>
+            <li>Desktop app: F and Alt+Enter switch the window in and out of fullscreen (thanks, brummilab!).</li>
           </ul>
+          <details><summary>v1.5.11 &middot; Oct 17 2026</summary><ul>
+            <li>The mouse pointer no longer flickers in the menus and the track editor (thanks, brummilab!).</li>
+          </ul></details>
           <details><summary>v1.5.10 &middot; Oct 15 2026</summary><ul>
             <li>Checked against all 6,907 replays in Chocolate Stunts' test pack: every one plays back exactly as in DOS.</li>
             <li>OG mode: the in-car dashboard's edge is drawn exactly as the original draws it, without a stray line of pixels.</li>
