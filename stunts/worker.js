@@ -8,7 +8,9 @@ onmessage = async e => {
   importScripts(code);   // the game's code, made by the page from your copy (boot.js)
   // your copy of the game (from the welcome screen), else the copy next to the page
   const files = gameFiles ? Object.assign({}, gameFiles) : {};
-  const list = gameFiles ? [] : await (await fetch('gen/files.json')).json();
+  // (which files: gen/files.json if there is one, else the server's directory listing of the Restunts copy, as tracks/ below)
+  const list = gameFiles ? [] : await fetch('gen/files.json').then(r => r.ok ? r.json() : fetch('../vendor/restunts/stunts/')
+    .then(r => r.text()).then(html => [...new Set([...html.matchAll(/href="([^"?/]+)"/g)].map(m => decodeURIComponent(m[1])))]));
   await Promise.all(list.map(async f => {
     const r = await fetch('../vendor/restunts/stunts/' + f);
     if (r.ok) files[f.toUpperCase()] = new Uint8Array(await r.arrayBuffer());
