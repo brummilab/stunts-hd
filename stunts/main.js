@@ -37,7 +37,10 @@ function pointer(e) {
   const over = e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom;
   // (let go outside the picture: the drag and the game's button end all the same)
   if (!over && e.type === 'pointerup') { pointer.drag = pointer.downInMenu = false; Atomics.store(mouseI, 3, 0); if (typeof view !== 'undefined' && view && view.pointer) view.pointer = { ...view.pointer, b: 0, t: performance.now() }; return; }
-  if (!over || (typeof view !== 'undefined' && view && view.raceView && performance.now() - (view.lastFrame || 0) < 300)) return;
+  // (a replay playing is a race view too, but its panel is worked with the mouse: the pointer stays the game's there)
+  const driving = typeof view !== 'undefined' && view && view.raceView && performance.now() - (view.lastFrame || 0) < 300
+    && !mem[(StuntsCode.DSEG << 4) + StuntsCode.SYM.game_replay_mode];
+  if (!over || driving) return;
   Atomics.store(mouseI, 1, Math.max(0, Math.min(65535, Math.round((e.clientX - r.left) / r.width * 65535))));
   Atomics.store(mouseI, 2, Math.max(0, Math.min(65535, Math.round((e.clientY - r.top) / r.height * 65535))));
   // (the track menu's 3D overview is turned by dragging: presses over it, between the title and the buttons, are not
