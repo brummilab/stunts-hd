@@ -5,6 +5,6 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('stuntsHost', {
   pickGame: kind => ipcRenderer.invoke('pick-game', kind),   // ('folder' or 'zip')
   version: () => ipcRenderer.invoke('version'),
-  fullscreen: on => ipcRenderer.invoke('fullscreen', on),
+  fullscreen: on => ipcRenderer.invoke('fullscreen', on),   // (true, false or 'toggle')
   quit: () => ipcRenderer.invoke('quit'),
 });
