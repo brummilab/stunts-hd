@@ -405,10 +405,40 @@ function dissolving(a, b) {   // the pixels changed since the last look: many, a
   }
   return n > 600 && lone > n * 0.3;
 }
+// The game draws its mouse pointer into the screen itself, and takes it off (mouse_draw_opaque, mouse_isdirty 0)
+// while it draws under it, putting it back after (mouse_draw_transparent, 1). The screen is copied at the display's
+// pace, so a copy in between had no pointer: it flickered in the menus and the editor (mr-finster/stunts-hd#9).
+// While it is off, the copy gets it here as the game draws it (the mask ANDed, the picture ORed, at its place);
+// only for a moment (a longer while is the game hiding it on purpose), and never in a race.
+let pointerOffSince = 0;
+function pointerOver(px, t) {
+  const D = StuntsCode.DSEG << 4, S = StuntsCode.SYM;
+  if (!mem[D + S.kbormouse] || mem[D + S.mouse_isdirty] || (view && view.raceView)) { pointerOffSince = 0; return; }
+  if (!pointerOffSince) pointerOffSince = t;
+  if (t - pointerOffSince > 300) return;
+  const w16 = a => mem[a] | mem[a + 1] << 8, s16 = v => v << 16 >> 16;
+  const far = a => ((w16(a + 2) << 4) + w16(a)) & 0xFFFFF;   // (a far pointer in memory, as an address)
+  const shape = sp => far(far(D + S[sp]));   // (the sprite's bitmap: width, height, ..., pixels from byte 16)
+  const mask = shape('mmouspriteptr'), pic = shape('smouspriteptr');
+  const x0 = s16(w16(D + S.mouse_xpos)), y0 = s16(w16(D + S.mouse_ypos));
+  for (const [b, or] of [[mask, false], [pic, true]]) {
+    const w = w16(b), h = w16(b + 2);
+    if (!w || !h || w > 64 || h > 64) return;
+    for (let y = 0; y < h; y++) {
+      const sy = y0 + y; if (sy < 0 || sy >= 200) continue;
+      for (let x = 0; x < w; x++) {
+        const sx = x0 + x; if (sx < 0 || sx >= 320) continue;
+        const v = mem[b + 16 + y * w + x], i = sy * 320 + sx;
+        px[i] = or ? px[i] | v : px[i] & v;
+      }
+    }
+  }
+}
 function frame(t) {   // t: the display frame's time (steadier than reading the clock mid-work)
   // one snapshot of the screen and the see-through marks for this whole frame: the game runs on meanwhile,
   // and two layers built from different moments leave holes where pixels turned see-through in between
   rawNow.set(mem.subarray(0xA0000, 0xA0000 + 64000));
+  pointerOver(rawNow, t);
   const hold = !OG_MODE && !(view && view.raceView) && dissolving(rawNow, rawPrev);
   rawPrev.set(rawNow);
   if (hold && !dissolveSince) dissolveSince = t;
