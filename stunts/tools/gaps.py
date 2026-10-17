@@ -11,6 +11,9 @@
 #   python3 stunts/tools/gaps.py outdir TRACK --props   each building (scenery shape) on the track up close from 8 sides,
 #                                                        low, half way up and close below its eaves: outdir/TRACK/prop-<shape>.png sheets
 # (the server, stunts/tools/serve.py 8766, must be running; tracks from the game's own: DEFAULT, ALPS, ...)
+# Known findings: --save keeps this run's as each track's baseline (stunts/tools/gaps-baseline/TRACK.json, or --base DIR);
+# a later run with the same --views marks what isn't in it NEW (the same view, boxes within --tol 8 px: drawing differs
+# a little from GPU to GPU) and says what has gone. The views are the same each run: the places come from a fixed seed.
 import base64, json, os, subprocess, sys
 import numpy as np
 from PIL import Image, ImageDraw
@@ -24,7 +27,10 @@ AGAIN = '--again' in args
 if AGAIN: args.remove('--again')
 PROPS = '--props' in args
 if PROPS: args.remove('--props')
-NV = int(opt('--views', '48')); MIN = int(opt('--min', '6'))
+SAVE = '--save' in args
+if SAVE: args.remove('--save')
+NV = int(opt('--views', '48')); MIN = int(opt('--min', '6')); TOL = int(opt('--tol', '8'))
+BASE = opt('--base', os.path.join(HERE, 'gaps-baseline'))
 out = args[0]; tracks = args[1:] or ['DEFAULT']
 os.makedirs(out, exist_ok=True)
 
@@ -110,7 +116,7 @@ def label(m, diag=False):
         res.append((box, cnt))
     return lab, res
 
-report = []
+report = []; rows = []   # (rows: the findings as data, for the baseline)
 for tr in tracks:
     d = os.path.join(out, tr); os.makedirs(d, exist_ok=True)
     nv = 24 * 24 if PROPS else NV
@@ -153,6 +159,7 @@ for tr in tracks:
         for kind, (x0, y0, x1, y1), n in found:
             dr.rectangle([x0 - 6, y0 - 6, x1 + 6, y1 + 6], outline=(255, 255, 0) if kind == 'crack' else (0, 220, 255), width=2)
             report.append('%s v%02d %s %dpx at (%d,%d)-(%d,%d) cam %s' % (tr, k, kind, n, x0, y0, x1, y1, json.dumps({q: round(v, 1) for q, v in cams[k].items()})))
+            rows.append({'track': tr, 'v': k, 'kind': kind, 'box': [int(x0), int(y0), int(x1), int(y1)], 'px': int(n)})
         im.save(os.path.join(out, 'hit-%s-v%02d.png' % (tr, k)))
 
 # every finding up close on one sheet (3x, numbered as in the report)
@@ -169,6 +176,25 @@ for s0 in range(0, len(crops), 24):
     for i, im in enumerate(crops[s0:s0 + 24]): sheet.paste(im, ((i % 4) * 480, (i // 4) * 240))
     sheet.save(os.path.join(out, 'crops-%d.png' % (s0 // 24)))
 
+# the baseline: keep this run's (--save), or tell this run's new findings from the known ones
+def near(a, b):   # (the same view, the boxes overlapping once grown by TOL; crack or hole alike: the call can flip)
+    return a['v'] == b['v'] and all(a['box'][i] - TOL <= b['box'][i + 2] and b['box'][i] - TOL <= a['box'][i + 2] for i in (0, 1))
+summary = []
+for tr in tracks:
+    f = os.path.join(BASE, tr + ('-props' if PROPS else '') + '.json'); mine = [r for r in rows if r['track'] == tr]
+    if SAVE:
+        os.makedirs(BASE, exist_ok=True)
+        open(f, 'w').write('{"views": %d, "findings": [\n%s\n]}\n' % (nv, ',\n'.join(json.dumps({q: r[q] for q in ('v', 'kind', 'box', 'px')}) for r in mine)))   # (a finding a line: diffs read well)
+        summary.append('%s: baseline saved, %d finding(s) (%s)' % (tr, len(mine), os.path.relpath(f)))
+    elif os.path.exists(f):
+        known = json.load(open(f))
+        if known['views'] != nv: summary.append('%s: baseline made with --views %d, not compared' % (tr, known['views'])); continue
+        for r in mine: r['new'] = not any(near(r, b) for b in known['findings'])
+        gone = [b for b in known['findings'] if not any(near(b, r) for r in mine)]
+        summary.append('%s: %d new, %d known, %d gone since the baseline' % (tr, sum(r['new'] for r in mine), sum(not r['new'] for r in mine), len(gone)))
+report = [line + (' NEW' if r.get('new') else '') for line, r in zip(report, rows)]
+
 open(os.path.join(out, 'report.txt'), 'w').write('\n'.join(report) + '\n')
 print('\n'.join(report) or 'no gaps found')
 print('%d finding(s)' % len(report))
+if summary: print('\n'.join(summary))
