@@ -408,11 +408,24 @@ function dissolving(a, b) {   // the pixels changed since the last look: many, a
 function frame(t) {   // t: the display frame's time (steadier than reading the clock mid-work)
   // one snapshot of the screen and the see-through marks for this whole frame: the game runs on meanwhile,
   // and two layers built from different moments leave holes where pixels turned see-through in between
+  // the game's pointer is drawn into the screen itself: to draw anything under it, the game takes it off, draws, and puts
+  // it back. A snapshot taken in between had no pointer, and it flickered in the menus and the track editor as it moved
+  // (or as something animated under it). Outside races such a snapshot is passed over and the last one with the pointer
+  // kept, for a moment only (the game's gaps: mostly 30-150 ms): a pointer the game hid for good (the keys used for a
+  // while) lets the screen go on.
+  const mD = StuntsCode.DSEG << 4, mDirty = mD + StuntsCode.SYM.mouse_isdirty, mShown = mD + StuntsCode.SYM.kbormouse;
+  const before = mem[mDirty] && mem[mShown];
   rawNow.set(mem.subarray(0xA0000, 0xA0000 + 64000));
-  const hold = !OG_MODE && !(view && view.raceView) && dissolving(rawNow, rawPrev);
-  rawPrev.set(rawNow);
-  if (hold && !dissolveSince) dissolveSince = t;
-  if (!hold || t - dissolveSince > 500) { dissolveSince = 0; scr.set(rawNow); } mk.set(bgU8.subarray(128000, 192000)); ogView.set(bgU8.subarray(256000, 320000));
+  const noPointer = !(view && view.raceView) && mem[mShown] && !(before && mem[mDirty]);
+  if (!noPointer) frame.pointerAt = t;
+  const pointerGap = noPointer && frame.pointerAt != null && t - frame.pointerAt < 250;
+  if (!pointerGap) {
+    const hold = !OG_MODE && !(view && view.raceView) && dissolving(rawNow, rawPrev);
+    rawPrev.set(rawNow);
+    if (hold && !dissolveSince) dissolveSince = t;
+    if (!hold || t - dissolveSince > 500) { dissolveSince = 0; scr.set(rawNow); }
+  }
+  mk.set(bgU8.subarray(128000, 192000)); ogView.set(bgU8.subarray(256000, 320000));
   for (let i = 0; i < 256; i++) rgb[i] = 0xFF000000 | ((pal[i * 3 + 2] * 255 / 63) << 16) | ((pal[i * 3 + 1] * 255 / 63) << 8) | (pal[i * 3] * 255 / 63);
   // the high-res layer shows while frames arrive, and for as long as see-through pixels remain on screen
   // (only pixels the worker made see-through count: bgU8[128000..] marks them; the game itself also uses
