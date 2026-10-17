@@ -42,12 +42,15 @@ const [W, H] = opt('--size', '1280x600').split('x').map(Number);
 const port = +opt('--port', String(9240 + Math.floor(Math.random() * 500)));
 fs.mkdirSync(out, { recursive: true });
 
-// Chrome: CHROME if set, else where it usually is on this system (Chromium on Linux too)
+// Chrome: CHROME if set, else where it usually is on this system (Chromium on Linux too; on Windows, Edge when there
+// is no Chrome: it comes with Windows)
 const chrome = process.env.CHROME || ({
   darwin: ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'],
   win32: [path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Google/Chrome/Application/chrome.exe'),
     path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Google/Chrome/Application/chrome.exe'),
-    path.join(process.env.LOCALAPPDATA || '', 'Google/Chrome/Application/chrome.exe')],
+    path.join(process.env.LOCALAPPDATA || '', 'Google/Chrome/Application/chrome.exe'),
+    path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Microsoft/Edge/Application/msedge.exe'),
+    path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Microsoft/Edge/Application/msedge.exe')],
 }[process.platform] || ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser'])
   .find(p => fs.existsSync(p));
 if (!chrome) { console.error('Chrome not found: set CHROME to its path'); process.exit(2); }
