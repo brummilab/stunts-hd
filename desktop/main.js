@@ -102,7 +102,7 @@ function keepBounds(win) {
 // what the page may ask of the app besides your game's files: its version, and the window fullscreen or not
 ipcMain.handle('version', () => app.getVersion());
 ipcMain.handle('quit', () => app.quit());   // (the front page's Quit, and the game's own exit to DOS)
-ipcMain.handle('fullscreen', (e, on) => { const w = BrowserWindow.fromWebContents(e.sender); if (w) w.setFullScreen(!!on); });
+ipcMain.handle('fullscreen', (e, on) => { const w = BrowserWindow.fromWebContents(e.sender); if (w) w.setFullScreen(on === 'toggle' ? !w.isFullScreen() : !!on); });   // ('toggle': the game's F and Alt+Enter)
 
 function about(win) {
   dialog.showMessageBox(win, {

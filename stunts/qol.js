@@ -177,14 +177,20 @@
   }
 
   // ---- page keys (before the game sees them)
+  // (fullscreen on or off: in the desktop app its window, which the app may have made fullscreen already at the start, so
+  // the page's own fullscreen inside it changed nothing you could see and the second press left the window fullscreen)
+  const fullscreen = () => {
+    if (window.stuntsHost && stuntsHost.fullscreen) { if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); stuntsHost.fullscreen(false); } else stuntsHost.fullscreen('toggle'); }
+    else if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {});
+  };
   const swallowed = new Set();
   window.qolKey = (e, down) => {
     if (!down && swallowed.has(e.code)) { swallowed.delete(e.code); return true; }
     let mine = false;
     if (e.code === 'KeyR' && !(typeof typing === 'function' && typing()) && racing()) { if (down && !e.repeat) restart(); mine = true; }
-    else if (e.code === 'Enter' && e.altKey) { if (down) { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); } mine = true; }
+    else if (e.code === 'Enter' && e.altKey) { if (down) { fullscreen(); } mine = true; }
     else if (e.code === 'KeyF' && !(typeof typing === 'function' && typing()) && !e.altKey && !e.ctrlKey && !e.metaKey && !(e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) && !document.querySelector('#trkio[open]') && !document.getElementById('setup')) {   // (F: fullscreen anywhere in the game; not while a name or a code is being typed, in the game or in the page's boxes)
-      if (down && !e.repeat) { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); } mine = true;
+      if (down && !e.repeat) { fullscreen(); } mine = true;
     }
     else if (e.code === 'F9') { if (down) { muted = !muted; store('stunts-mute', muted ? '1' : '0'); applyVol(); say(muted ? 'Sound off' : 'Sound on'); } mine = true; }
     else if (e.code === 'F7' || e.code === 'F8') {
