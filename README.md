@@ -16,6 +16,7 @@ smooth at any refresh rate, the original game's own code and physics underneath.
   <a href="https://github.com/mr-finster/stunts-hd/releases/latest">Download</a> ·
   <a href="https://youtu.be/WifwNFpG96o">Trailer</a> ·
   <a href="#status">Status</a> ·
+  <a href="#accuracy">Accuracy</a> ·
   <a href="#controls">Controls</a> ·
   <a href="https://github.com/mr-finster/stunts-hd/issues">Report a bug</a>
 </p>
@@ -69,6 +70,36 @@ pick your Stunts folder or zip.
 > on Windows, choose More info > Run anyway. On a company PC, a Microsoft Defender rule ("Block executable files
 > unless they meet a prevalence, age, or trusted list criterion") can block it outright: ask your IT team, or play in
 > the browser.
+
+## Accuracy
+
+The game you play is the original's own code: your GAME.EXE, translated instruction by instruction, with nothing
+rewritten by hand. So the handling, the opponents, the crashes and the scoring are the original's, bugs included.
+
+| Check | Result |
+| --- | --- |
+| Translation | Your GAME.EXE's translation must match a checksum of the known-good translation before the game starts |
+| Replays | All 6,907 replays in Chocolate Stunts' test pack play back exactly as in DOS (`stunts/tools/repcheck.js`) |
+| OG mode (<kbd>H</kbd>) | Checked frame by frame against the original renderer's own picture |
+| HD view | Checked in scripted headless races, and against the original renderer, which a debug mode draws over it |
+
+Known differences from DOS:
+
+- The HD view is a new renderer, so what you see differs on purpose. It never changes what the game does.
+- Stunts 1.1 only, for now.
+
+## Other Stunts projects
+
+Stunts has a lively community, and other projects take different routes. All but Ultimate Stunts need your own copy of the game.
+
+| Project | How it works | Runs on | Graphics |
+| --- | --- | --- | --- |
+| **Stunts HD** (this one) | The original GAME.EXE, translated to JavaScript | Browser; desktop app (macOS, Windows, Linux) | HD 3D at display resolution, widescreen; OG mode |
+| [Chocolate Stunts](https://github.com/CommonLoon102/restunts-bb11) | A C port, built on the Restunts disassembly | Windows, macOS, Linux, BSD, DOS, Android, browser and more | Original 320x200, or HyperVision at higher resolutions; 4:3 |
+| [Play Stunts](https://github.com/ACatWithEbola/playstunts) | A reconstruction in TypeScript | Browser | Enhanced renderer, or the original display modes |
+| [Restunts](https://github.com/4d-stunts/restunts) | The community disassembly of the original, which builds back into the DOS game | DOS | Original |
+| Ultimate Stunts | A remake, with its own engine | Windows, Linux | OpenGL |
+| DOSBox | The original game, emulated | Windows, macOS, Linux | Original |
 
 ## Controls
 
