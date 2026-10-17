@@ -225,15 +225,20 @@
       const px = () => R.x0 + M[1] / 65535 * (R.x1 - R.x0), py = () => R.y0 + M[2] / 65535 * (R.y1 - R.y0);
       const cl = (v, a, b) => Math.max(a, Math.min(b, Math.round(v)));
       switch (r.ax) {
-        case 0x00: Object.assign(R, { x0: 0, x1: 639, y0: 0, y1: 199, ox: 0, oy: 0 }); r.ax = 0xFFFF; r.bx = 2; return;
+        case 0x00: Object.assign(R, { x0: 0, x1: 639, y0: 0, y1: 199, ox: 0, oy: 0 }); r.ax = 0xFFFF; r.bx = 2; this.mousePublish(); return;
         // (mouseHold: a button still held from before a new menu came up is not pressed in it, until let go)
         case 0x03: { let b = M[3] & 3; if (this.mouseHold) { if (b) b = 0; else this.mouseHold = false; } r.bx = b; } r.cx = cl(px() + R.ox, R.x0, R.x1); r.dx = cl(py() + R.oy, R.y0, R.y1); return;
-        case 0x04: R.ox = r.cx - px(); R.oy = r.dx - py(); return;
+        case 0x04: R.ox = r.cx - px(); R.oy = r.dx - py(); this.mousePublish(); return;
         // (a new range keeps the position where it is, clamped: no movement the player did not make)
-        case 0x07: { const cx = cl(px() + R.ox, R.x0, R.x1); R.x0 = Math.min(r.cx, r.dx); R.x1 = Math.max(r.cx, r.dx); R.ox = cl(cx, R.x0, R.x1) - px(); return; }
-        case 0x08: { const cy = cl(py() + R.oy, R.y0, R.y1); R.y0 = Math.min(r.cx, r.dx); R.y1 = Math.max(r.cx, r.dx); R.oy = cl(cy, R.y0, R.y1) - py(); return; }
+        case 0x07: { const cx = cl(px() + R.ox, R.x0, R.x1); R.x0 = Math.min(r.cx, r.dx); R.x1 = Math.max(r.cx, r.dx); R.ox = cl(cx, R.x0, R.x1) - px(); this.mousePublish(); return; }
+        case 0x08: { const cy = cl(py() + R.oy, R.y0, R.y1); R.y0 = Math.min(r.cx, r.dx); R.y1 = Math.max(r.cx, r.dx); R.oy = cl(cy, R.y0, R.y1) - py(); this.mousePublish(); return; }
         default: return;   // (show / hide, speed: the page's own pointer)
       }
+    }
+    // (the range and offset, for the page: it draws the game's pointer where the game would read it now, [4..9])
+    mousePublish() {
+      const M = this.mouseIn, R = this.mouseR;
+      if (M && M.length >= 10) { M[4] = R.x0; M[5] = R.x1; M[6] = R.y0; M[7] = R.y1; M[8] = Math.round(R.ox * 65536); M[9] = Math.round(R.oy * 65536); }
     }
     int10(r, ah, al) {
       if (ah === 0x00) { this.videoMode = al; if (al === 0x13) this.mem.fill(0, 0xA0000, 0xB0000); return; }

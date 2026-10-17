@@ -27,7 +27,7 @@ try { const p = localStorage.getItem('stunts-prefs'); if (p) prefs = Uint8Array.
 const inbox = new SharedArrayBuffer(32 + 256 * 1024);
 // the mouse, for the game's mouse driver (int 33h in dos.js): [0] present, [1] x, [2] y (0..65535 across the
 // 4:3 screen), [3] buttons
-const mouse = new SharedArrayBuffer(16), mouseI = new Int32Array(mouse);
+const mouse = new SharedArrayBuffer(40), mouseI = new Int32Array(mouse);   // ([4..9]: the game's mouse range and offset, from the worker)
 Atomics.store(mouseI, 0, /[?&]nomouse/.test(location.search) ? 0 : 1);
 function pointer(e) {
   if (pointer.fake) return;   // (a press the page is making on the game's behalf: see afterDelete in qol.js)
@@ -411,42 +411,67 @@ function dissolving(a, b) {   // the pixels changed since the last look: many, a
 // The game draws its mouse pointer into the screen itself, and takes it off (mouse_draw_opaque, mouse_isdirty 0)
 // while it draws under it, putting it back after (mouse_draw_transparent, 1). The screen is copied at the display's
 // pace, so a copy in between had no pointer: it flickered in the menus and the editor (mr-finster/stunts-hd#9).
-// While it is off, the copy gets it here as the game draws it (the mask ANDed, the picture ORed, at its place);
-// only for a moment (a longer while is the game hiding it on purpose), and never while driving (a replay, yes).
-let pointerOffSince = 0;
+// While it is off, the copy gets it here as the game draws it (the mask ANDed, the picture ORed); only for a moment
+// (a longer while is the game hiding it on purpose), and never while driving (a replay, yes).
+// It is drawn where the game would read the mouse now, not where it last did: the game moves its pointer only when
+// it next looks, which in the editor is a while, so it trailed the mouse in steps. While the game's own is on, it is
+// taken off the copy first, with the screen under it as the game saved it to put back (mouseunkspriteptr).
+let pointerOffSince = 0, pointerAt = null;   // (pointerAt: where a pointer is on the copy after pointerOver, or null)
 const drivingNow = () => !!(view && view.raceView) && !mem[(StuntsCode.DSEG << 4) + StuntsCode.SYM.game_replay_mode];   // (a replay is a race view too, but with the pointer in use)
+// where int 33h function 3 would put the pointer now, as mouse_get_state scales it, from the range and offset the
+// worker publishes (mouseI[4..9]); null before the game has set the mouse up
+function pointerLive() {
+  const M = mouseI, x0 = M[4], x1 = M[5], y0 = M[6], y1 = M[7];
+  if (!M[0] || x1 <= x0 || y1 <= y0) return null;
+  const cl = (v, a, b) => Math.max(a, Math.min(b, Math.round(v)));
+  const x = cl(x0 + M[1] / 65535 * (x1 - x0) + M[8] / 65536, x0, x1), y = cl(y0 + M[2] / 65535 * (y1 - y0) + M[9] / 65536, y0, y1);
+  return [x >> (mem[(StuntsCode.DSEG << 4) + StuntsCode.SYM.mousehorscale] & 15), y];
+}
 function pointerOver(px, t) {
   const D = StuntsCode.DSEG << 4, S = StuntsCode.SYM;
-  if (!mem[D + S.kbormouse] || mem[D + S.mouse_isdirty] || drivingNow()) { pointerOffSince = 0; return; }
-  if (!pointerOffSince) pointerOffSince = t;
-  if (t - pointerOffSince > 300) return;
+  pointerAt = null;
+  if (!mem[D + S.kbormouse] || drivingNow()) { pointerOffSince = 0; return; }
   const w16 = a => mem[a] | mem[a + 1] << 8, s16 = v => v << 16 >> 16;
   const far = a => ((w16(a + 2) << 4) + w16(a)) & 0xFFFFF;   // (a far pointer in memory, as an address)
-  const shape = sp => far(far(D + S[sp]));   // (the sprite's bitmap: width, height, ..., pixels from byte 16)
+  const shape = sp => far(far(D + S[sp]));   // (the sprite's bitmap: width, height, ..., x and y at 8 and 10, pixels from byte 16)
+  const ok = b => { const w = w16(b), h = w16(b + 2); return w && h && w <= 64 && h <= 64; };
+  const on = mem[D + S.mouse_isdirty], game = [s16(w16(D + S.mouse_xpos)), s16(w16(D + S.mouse_ypos))];
+  if (on) pointerOffSince = 0;
+  else { if (!pointerOffSince) pointerOffSince = t; if (t - pointerOffSince > 300) return; }
+  const live = pointerLive() || game;
+  if (on) {
+    const u = shape('mouseunkspriteptr');
+    if (!ok(u)) { pointerAt = game; return; }   // (taken off even where the mouse hasn't moved: mouse_xpos can be newer than the drawing)
+    const w = w16(u), h = w16(u + 2), ux = s16(w16(u + 8)), uy = s16(w16(u + 10));
+    for (let y = 0; y < h; y++) {
+      const sy = uy + y; if (sy < 0 || sy >= 200) continue;
+      for (let x = 0; x < w; x++) { const sx = ux + x; if (sx >= 0 && sx < 320) px[sy * 320 + sx] = mem[u + 16 + y * w + x]; }
+    }
+  }
   const mask = shape('mmouspriteptr'), pic = shape('smouspriteptr');
-  const x0 = s16(w16(D + S.mouse_xpos)), y0 = s16(w16(D + S.mouse_ypos));
+  if (!ok(mask) || !ok(pic)) return;
   for (const [b, or] of [[mask, false], [pic, true]]) {
     const w = w16(b), h = w16(b + 2);
-    if (!w || !h || w > 64 || h > 64) return;
     for (let y = 0; y < h; y++) {
-      const sy = y0 + y; if (sy < 0 || sy >= 200) continue;
+      const sy = live[1] + y; if (sy < 0 || sy >= 200) continue;
       for (let x = 0; x < w; x++) {
-        const sx = x0 + x; if (sx < 0 || sx >= 320) continue;
+        const sx = live[0] + x; if (sx < 0 || sx >= 320) continue;
         const v = mem[b + 16 + y * w + x], i = sy * 320 + sx;
         px[i] = or ? px[i] | v : px[i] & v;
       }
     }
   }
+  pointerAt = live;
 }
-// where the game's pointer is on screen (its mask's box), or null: kept see-through at the picture's left and right edges
+// where the pointer is on the copy (its mask's box), or null: kept see-through at the picture's left and right edges
 // below, so a pointer there (in a replay, where it moves over the 3D view) doesn't make its rows narrow
 function pointerBox() {
+  if (!pointerAt) return null;
   const D = StuntsCode.DSEG << 4, S = StuntsCode.SYM;
-  if (!mem[D + S.kbormouse]) return null;
-  const w16 = a => mem[a] | mem[a + 1] << 8, s16 = v => v << 16 >> 16, far = a => ((w16(a + 2) << 4) + w16(a)) & 0xFFFFF;
+  const w16 = a => mem[a] | mem[a + 1] << 8, far = a => ((w16(a + 2) << 4) + w16(a)) & 0xFFFFF;
   const b = far(far(D + S.mmouspriteptr)), w = w16(b), h = w16(b + 2);
   if (!w || !h || w > 64 || h > 64) return null;
-  const x = s16(w16(D + S.mouse_xpos)), y = s16(w16(D + S.mouse_ypos));
+  const [x, y] = pointerAt;
   return [x, y, x + w, y + h];
 }
 function frame(t) {   // t: the display frame's time (steadier than reading the clock mid-work)
