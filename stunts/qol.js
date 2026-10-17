@@ -197,6 +197,7 @@
       if (down) { vol = Math.max(0, Math.min(1, Math.round((vol + (e.code === 'F8' ? 0.1 : -0.1)) * 10) / 10)); muted = false; store('stunts-vol', vol); store('stunts-mute', '0'); applyVol(); say('Volume ' + Math.round(vol * 100) + '%'); }
       mine = true;
     }
+    else if (e.code === 'F10') { if (down && !e.repeat && typeof frame === 'function') frame.shot = true; mine = true; }   // (F10: a screenshot, main.js; F1-F4 are the game's own)
     else if (e.code === 'F6') { if (down) { const open = panel.style.display === 'none'; panel.style.display = open ? 'block' : 'none'; if (open) listFiles(); } mine = true; }
     if (mine) { e.preventDefault(); if (down) swallowed.add(e.code); return true; }
     if (down) held.add(e.code); else held.delete(e.code);

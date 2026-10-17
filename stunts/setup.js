@@ -379,6 +379,7 @@
             <span><kbd>R</kbd></span><span>Restart the race</span>
             <span><kbd>Esc</kbd></span><span>Race menu: replays, restart, quit</span>
             <span><kbd>F</kbd></span><span>Fullscreen</span>
+            <span><kbd>F10</kbd></span><span>Screenshot (PNG at your display's resolution)</span>
           </div>
           <p style="margin-top:.7rem">Gamepad: stick or d-pad to steer, triggers to drive.</p>
         </div></span>
