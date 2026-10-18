@@ -362,7 +362,7 @@
           <ol>
             <li>Find your Stunts folder: the one with <code>STUNTS.EXE</code>, <code>GAME1.P3S</code>, <code>MAIN.RES</code> and friends (Stunts 1.1).</li>
             <li><b>Which copy?</b> Stunts 1.1: its <code>MCGA.COD</code> is ${COD_11.toLocaleString('en')} bytes, dated 13 March 1991. 4D Sports Driving (the European release) and other versions don't run yet.</li>
-            <li><b>No copy to hand?</b> The Stunts community still races it every year: look up ZakStunts or the Stunts Wiki.</li>
+            <li><b>New to Stunts?</b> You need your own copy of Stunts 1.1. To learn more about the game and its community, visit <a href="https://zak.stunts.hu/" target="_blank" rel="noopener">ZakStunts</a> or the <a href="https://wiki.stunts.hu/" target="_blank" rel="noopener">Stunts Wiki</a>.</li>
             <li>Already have it as a zip? Use that as it is. If not, zip the whole folder. Any layout works: files in subfolders, or loose at the top.</li>
             <li><b>Your tracks too:</b> any <code>.TRK</code> tracks (and <code>.RPL</code> replays) in the zip show up in the game's track menu.</li>
           </ol>
