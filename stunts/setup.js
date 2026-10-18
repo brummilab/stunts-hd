@@ -138,7 +138,8 @@
     color: #f2f714; text-shadow: 3px 4px 0 rgba(0,0,0,.55); white-space: nowrap; }
   #setup .aka { margin: 8px 0 0; font-size: .74rem; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); animation: su-fade 1s ease .2s backwards; }
   #setup .ver { margin: 10px 0 0; font-size: .86rem; font-weight: 600; color: var(--ink); animation: su-fade 1s ease .3s backwards; }
-  #setup .cta { margin-top: 0; display: flex; gap: .7rem; justify-content: center; flex-wrap: wrap; animation: su-rise .7s cubic-bezier(.2,.7,.3,1) .5s backwards; }
+  /* (in front of the hills behind the trailer: on a short screen, a phone's, they reached down past it, over the buttons) */
+  #setup .cta { position: relative; z-index: 1; margin-top: 0; display: flex; gap: .7rem; justify-content: center; flex-wrap: wrap; animation: su-rise .7s cubic-bezier(.2,.7,.3,1) .5s backwards; }
   #setup .btn { display: inline-flex; align-items: center; gap: .6rem; cursor: pointer; border: 0; border-radius: 999px; padding: .8rem 1.5rem;
     font: 700 1.02rem system-ui, sans-serif; color: #111; background: var(--yel); text-decoration: none; transition: background .18s, box-shadow .18s; }
   #setup .btn .ico { width: 1.1em; height: 1.1em; flex: none; margin-left: -.2rem; }
