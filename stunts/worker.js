@@ -178,16 +178,16 @@ onmessage = async e => {
   function rewind(r, m, P, seconds) {
     const GS = StuntsCode.STRUCTS.GAMESTATE.fields, GI = StuntsCode.STRUCTS.GAMEINFO.fields, fr = SY.state + GS.game_frame;
     const now = pc.rw(D, fr), fps = pc.rw(D, SY.framespersec) || 20, to = Math.max(0, now - seconds * fps);
-    rewinding = true;
+    rewinding = true; const irq = pc.inIrq; pc.inIrq = true;   // (the timer held off while it winds back: in the replay its tick would end the race)
     try {
       pc.wb(D, SY.game_replay_mode, 2);   // (the recorded keys, as a replay plays)
       pc.push(r, to); pc.call(r, P, 'restore_gamestate', 4); r.sp = (r.sp + 2) & 0xFFFF;
       while (pc.rw(D, fr) < to) pc.call(r, P, 'update_gamestate', 4);
-    } finally { rewinding = false; }
+    } finally { rewinding = false; pc.inIrq = irq; }
     // "Continue Driving" (loc_244A7, less what is the menu's own: the camera and the dashboard stay as they were)
     pc.ww(D, SY.elapsed_time2, to); pc.ww(D, SY.gameconfig + GI.game_recordedframes, to);
     pc.wb(D, SY.game_replay_mode, 0); pc.wb(D, SY.state + GS.game_3F6autoLoadEvalFlag, 0); pc.ww(D, SY.state + GS.game_frame_in_sec, 0); pc.wb(D, SY.byte_449E6, 0);
-    pc.wb(D, SY.byte_449DA, 0);   // (the race no longer over: the menu got here through the replay, which clears it)
+    pc.wb(D, SY.byte_449DA, 0); pc.wb(D, SY.is_in_replay, 0);   // (the race no longer over, nor a replay: as the menu leaves them)
     pc.wb(D, SY.byte_43966, 3);   // (and marked continued, as that menu marks a race taken up again from a rewound replay
     // (loc_24453): the results say so, and its time goes in no high score table (byte_43966 & 6))
     return to;
@@ -231,6 +231,7 @@ onmessage = async e => {
   // (loc_244A7: the recording ends there, the replay off). The original's own code throughout: the state after is
   // the one the race had then. Only while driving, inside the race routine
   { const ug = StuntsCode.P.update_gamestate; if (ug && StuntsCode.P.restore_gamestate) StuntsCode.P.update_gamestate = function (r, m, P, e) {
+    if (rewindAsk && !pc.rw(D, SY.state + StuntsCode.STRUCTS.GAMESTATE.fields.game_frame)) rewindAsk = 0;   // (on the line, before the clock runs: nothing to wind back)
     if (!rewindAsk || !inRun || rewinding || pc.rb(D, SY.game_replay_mode) !== 0) return ug(r, m, P, e);
     const back = rewindAsk; rewindAsk = 0;
     rewind(r, m, P, back);

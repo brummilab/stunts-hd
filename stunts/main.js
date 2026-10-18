@@ -342,7 +342,8 @@ function drawHud(t, race, shown) {
   // the game's own "Wrong Way" (state+0x45D = 3, set whenever you drive against the track) is drawn by the game only in the
   // in-car view; in the others the page shows it, flashing
   const wrong = mem[D + Sy.state + 0x45D] === 3 && d.cam !== 0 && (t % 800) < 500;
-  const time = mm + ':' + (ss < 10 ? '0' : '') + ss.toFixed(2), key = time + '|' + wrong + '|' + OG_MODE + '|' + view.giOn + '|' + d.mph + '|' + d.cam + '|' + hc.width + '|' + track + '|' + gear + '|' + best + '|' + (view.ghostAvail ? view.ghostOn : 'x');
+  const rewound = window.qolRewind ? qolRewind.secs : 0;   // (seconds rewound with Q in this race, qol.js: the race marked)
+  const time = mm + ':' + (ss < 10 ? '0' : '') + ss.toFixed(2), key = time + '|' + wrong + '|' + OG_MODE + '|' + view.giOn + '|' + d.mph + '|' + d.cam + '|' + hc.width + '|' + track + '|' + gear + '|' + best + '|' + (view.ghostAvail ? view.ghostOn : 'x') + '|' + rewound;
   if (hud.drawn === key) return; hud.drawn = key;
   // (u: one pixel of the font for the labels; the numbers larger. All in proportion to the picture's height, in
   // between whole pixels too: the text shrinks with a smaller window, down to the font's own size)
@@ -357,6 +358,7 @@ function drawHud(t, race, shown) {
   if (CAMS[d.cam]) setting('(C) CAM', CAMS[d.cam]);
   setting('(H) HD MODE', OG_MODE ? 'OFF' : 'ON');
   if (LIGHT && !OG_MODE && view.giAvail !== false) setting('(L) LIGHTING', view.giOn ? 'REALISTIC' : 'CLASSIC');
+  if (rewound) setting('(Q) REWOUND', rewound + ' S');
   // bottom left: the time, its label above, the track's best under it
   // (the ghost's key goes under the best time, when there is a ghost: a lap you finished on this very track)
   const showGhost = view.ghostAvail, gl = showGhost ? 11 * small : 0;

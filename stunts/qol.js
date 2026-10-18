@@ -100,7 +100,7 @@
   let restarting = false;
   async function restart() {
     if (restarting || !racing() || !IB) return;
-    restarting = true; rewound(false);
+    restarting = true; rw.secs = 0;
     try {
       queue.push({ name: 'RESTART', data: 'restart' }); pump();
       while (queue.length || sending || Atomics.load(IB, 0) !== Atomics.load(IB, 1)) await sleep(10);
@@ -112,21 +112,18 @@
   }
 
   // ---- rewind (Q, held): the race back a second a press, on while held; the worker winds it back the game's own way
-  // (see worker.js). A race rewound says so in a corner, its replay too, until it is left or started again
-  const rwTag = document.createElement('div');
-  rwTag.textContent = '\u27f2 Rewound';
-  rwTag.style.cssText = 'position:fixed;left:8px;top:8px;padding:.3em .6em;background:rgba(0,0,0,.65);color:#fc6;font:600 12px ui-monospace,Menlo,monospace;border-radius:4px;pointer-events:none;z-index:10;display:none';
-  document.body.appendChild(rwTag);
-  let rwHeld = 0, rwSecs = 0;
-  const rewound = on => { rwTag.style.display = on ? 'block' : 'none'; };
+  // (see worker.js). The seconds rewound show in the race display (main.js: "(Q) REWOUND") until the race is left or
+  // started again
+  const rw = window.qolRewind = { secs: 0 };
+  let rwHeld = 0;
   const rewindOnce = () => {
-    if (!racing() || !IB) return;
+    if (!racing() || !IB || !r16(S.state + 320)) return;   // (not on the line, before the clock runs: nothing to wind back)
     queue.push({ name: 'REWIND', data: 'rewind' }); pump();
-    rewound(true); say('\u27f2 ' + (++rwSecs) + ' s');
+    rw.secs++;
   };
-  const rewindStop = () => { clearInterval(rwHeld); rwHeld = 0; rwSecs = 0; };
+  const rewindStop = () => { clearInterval(rwHeld); rwHeld = 0; };
   addEventListener('blur', rewindStop);
-  setInterval(() => { if (!view || !view.raceView) rewound(false); }, 500);
+  setInterval(() => { if (!view || !view.raceView) rw.secs = 0; }, 500);
 
   // ---- sound: volume 0..1 (the synthesiser's 0..0.5), muted
   let vol = +(load('stunts-vol') || 0.45), muted = load('stunts-mute') === '1', opl = null;
@@ -229,7 +226,7 @@
   };
   const swallowed = new Set();
   window.qolKey = (e, down) => {
-    if (!down && swallowed.has(e.code)) { swallowed.delete(e.code); return true; }
+    if (!down && swallowed.has(e.code)) { swallowed.delete(e.code); if (e.code === 'KeyQ') rewindStop(); return true; }   // (Q let go: the rewind stops)
     let mine = false;
     if (e.code === 'KeyR' && !(typeof typing === 'function' && typing()) && racing()) { if (down && !e.repeat) restart(); mine = true; }
     else if (e.code === 'Enter' && e.altKey) { if (down) { fullscreen(); } mine = true; }
