@@ -37,6 +37,32 @@
   let osdT = 0;
   const say = window.qolSay = t => { osd.textContent = t; osd.style.opacity = 1; clearTimeout(osdT); osdT = setTimeout(() => { osd.style.opacity = 0; }, 1600); };
 
+  // ---- how it runs (the key left of 1: ^ or `): frames a second on the display, the slowest frame, the game's own frames
+  // a second (20 in a race, as in 1990) and the 3D view's size; kept on or off from visit to visit
+  const perf = document.createElement('div');
+  perf.style.cssText = 'position:fixed;right:8px;top:8px;padding:.35em .6em;background:rgba(0,0,0,.65);color:#9f9;font:600 12px/1.45 ui-monospace,Menlo,monospace;border-radius:4px;pointer-events:none;white-space:pre;z-index:10;display:none';
+  document.body.appendChild(perf);
+  let perfOn = false;
+  const perfShow = on => {
+    perfOn = on; perf.style.display = on ? 'block' : 'none'; store('stunts-perf', on ? '1' : '0');
+    if (!on) return;
+    const I = typeof sceneI !== 'undefined' ? sceneI : null, gl = document.getElementById('gl');
+    let n = 0, worst = 0, last = performance.now(), t0 = last, g0 = I ? Atomics.load(I, 1) : 0;
+    const tick = now => {
+      if (!perfOn) return;
+      n++; worst = Math.max(worst, now - last); last = now;
+      if (now - t0 >= 500) {
+        const g = I ? Atomics.load(I, 1) : 0, dt = (now - t0) / 1000;
+        perf.textContent = `${Math.round(n / dt)} fps  ${worst.toFixed(1)} ms max\n` + (I ? `game frames ${Math.round((g - g0) / dt)}/s` : '')
+          + (gl && !gl.hidden && gl.width ? `  ${gl.width}\u00d7${gl.height}` : '');
+        n = 0; worst = 0; t0 = now; g0 = g;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+  try { if (localStorage.getItem('stunts-perf') === '1') perfShow(true); } catch (_) {}
+
   // ---- the game open in two tabs at once: both say so (each keeps its own copy of your files while it runs, so the
   // tab that saves last wins: a track, replay or high score saved in the other can be lost)
   try {
@@ -198,6 +224,7 @@
       mine = true;
     }
     else if (e.code === 'F10') { if (down && !e.repeat && typeof frame === 'function') frame.shot = true; mine = true; }   // (F10: a screenshot, main.js; F1-F4 are the game's own)
+    else if (e.code === 'Backquote' && !(typeof typing === 'function' && typing())) { if (down && !e.repeat) perfShow(!perfOn); mine = true; }   // (the key left of 1: how it runs)
     else if (e.code === 'F6') { if (down) { const open = panel.style.display === 'none'; panel.style.display = open ? 'block' : 'none'; if (open) listFiles(); } mine = true; }
     if (mine) { e.preventDefault(); if (down) swallowed.add(e.code); return true; }
     if (down) held.add(e.code); else held.delete(e.code);
