@@ -12,6 +12,8 @@
   // and the program: GAME.EXE, or the parts the game's installer builds it from (the MCGA build)
   const PROGRAM = ['EGA.CMN', 'MCGA.HDR', 'MCGA.DIF', 'MCGA.COD'];
   const COD_11 = 48899;   // (Stunts 1.1's MCGA.COD, dated 13 March 1991)
+  // the other releases, told apart by the size of their MCGA.COD (the Stunts wiki's downloads): named, when they're picked
+  const OTHER = { 42978: 'Stunts 1.0 (October 1990)', 70850: '4D Sports Driving (December 1990)', 48719: '4D Sports Driving (February 1991)' };
   const missing = files => NEED.filter(n => !files[n]).concat(files['GAME.EXE'] || PROGRAM.every(n => files[n]) ? [] : PROGRAM.filter(n => !files[n]));
   const KEEP = /\.(RES|P3S|3SH|PVS|VSH|XVS|PES|ESH|PRE|FNT|TRK|RPL|DRV|VCE|SFX|KMS|PLB|TD|HIG)$|^GAME\.EXE$|^EGA\.CMN$|^MCGA\.(HDR|DIF|COD)$/;   // (what the game reads, and its program; the rest is left out. 3SH, VSH, XVS, ESH: the unpacked forms the game also takes, as added cars often come: without them it asked for the disk again and again)
 
@@ -550,6 +552,7 @@
     // European release, has a different program; the size of MCGA.COD tells the versions apart)
     const which = files => {
       const cod = files['MCGA.COD'], size = cod ? cod.length : 0, n = collect.names || [];
+      if (OTHER[size]) return `<br><small>This is <b>${OTHER[size]}</b>: only Stunts 1.1 runs here for now.</small>`;
       const eu = n.some(k => k.endsWith('.D4D') || /4D[ _-]?SPORTS/.test(k));
       // (the size only when it tells: the same size as 1.1's means a changed copy, and a GAME.EXE alone has none)
       const sz = size && size !== COD_11 ? `: its <code>MCGA.COD</code> is ${COD_11.toLocaleString('en')} bytes, yours is ${size.toLocaleString('en')}` : size ? ': this one looks like it but has been changed' : '';
@@ -565,6 +568,8 @@
       if (me !== latest) return;   // (a newer pick or drop since)
       const names = Object.keys(files), miss = missing(files);
       const tracks = names.filter(n => n.endsWith('.TRK')).length, replays = names.filter(n => n.endsWith('.RPL')).length;
+      // (another release named first: Stunts 1.0 has other file names, and the list of what's missing told nothing)
+      if (files['MCGA.COD'] && OTHER[files['MCGA.COD'].length]) { say(`<span class="bad">This copy is another version of the game.</span>${which(files)}`); return; }
       if (miss.length) {
         say(`<span class="bad">That doesn't look like the whole game: missing ${miss.slice(0, 6).join(', ')}${miss.length > 6 ? ` and ${miss.length - 6} more` : ''}.</span> Zip the full Stunts 1.1 folder and try again.</span>${collect.names && collect.names.some(k => k.endsWith('.D4D') || /4D[ _-]?SPORTS/.test(k)) ? which(files) : ''}`);
         return;

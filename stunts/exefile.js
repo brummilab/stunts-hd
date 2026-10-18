@@ -131,7 +131,7 @@
     else if (files['MCGA.HDR'] && files['EGA.CMN'] && files['MCGA.DIF'] && files['MCGA.COD']) {
       const part = n => packed(files[n]) ? unpackFile(files[n]) : files[n], cmn = part('EGA.CMN'), dif = part('MCGA.DIF'), cod = part('MCGA.COD');
       if (!cmn || !dif || !cod) return null;
-      p = load(combine(files['MCGA.HDR'], cmn, dif, cod));
+      p = load(combine(part('MCGA.HDR'), cmn, dif, cod));   // (Stunts 1.0's header is packed too)
     }
     if (!p) return null;
     // the copy-protection question off, as in the copy the Restunts project works from (mov byte ptr [0A6AAh], 1)
