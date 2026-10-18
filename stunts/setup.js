@@ -383,6 +383,7 @@
             <span><kbd>Esc</kbd></span><span>Race menu: replays, restart, quit</span>
             <span><kbd>F</kbd></span><span>Fullscreen</span>
             <span><kbd>F10</kbd></span><span>Screenshot (PNG at your display's resolution)</span>
+            <span><kbd>^</kbd> / <kbd>&#96;</kbd></span><span>How it runs: frames a second, slowest frame (the key left of 1)</span>
           </div>
           <p style="margin-top:.7rem">Gamepad: stick or d-pad to steer, triggers to drive.</p>
         </div></span>
