@@ -114,6 +114,7 @@ Stunts has a lively community, and other projects take different routes. All but
 | <kbd>R</kbd> | Restart the race |
 | <kbd>Esc</kbd> | Race menu: replays, restart, quit |
 | <kbd>F</kbd> | Fullscreen |
+| <kbd>F10</kbd> | Screenshot: a PNG at your display's resolution |
 
 Gamepad: stick or d-pad to steer, triggers to drive.
 

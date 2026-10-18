@@ -638,6 +638,34 @@ function frame(t) {   // t: the display frame's time (steadier than reading the 
   // (and only while the 3D view shows through in this very frame, or in OG mode: leaving car select or a race for the
   // high scores, the last 3D picture is kept a few frames more, and the settings line lingered over the next screen)
   { const now3d = live && (keyed || og); drawHud(t, now3d && view.raceView && !NOHUD, now3d); }
+  if (frame.shot) { frame.shot = false; screenshot(); }
   requestAnimationFrame(frame);
+}
+// a screenshot (F10, qol.js): the page's layers as they show, at the display's own resolution, in one PNG; taken
+// straight after the frame is drawn (the 3D view's picture is only there until the frame ends)
+function screenshot() {
+  const dpr = window.devicePixelRatio || 1, W = Math.round(innerWidth * dpr), H = Math.round(innerHeight * dpr);
+  const out = document.createElement('canvas'); out.width = W; out.height = H;
+  const c = out.getContext('2d'); c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
+  for (const el of document.querySelectorAll('canvas#bg, canvas#gl, canvas#sides, canvas#screen, canvas#hud')) {
+    const st = getComputedStyle(el);
+    if (el.hidden || st.display === 'none' || st.visibility === 'hidden' || +st.opacity === 0 || !el.width || !el.height) continue;
+    const r = el.getBoundingClientRect(), x = r.left * dpr, y = r.top * dpr, w = r.width * dpr, h = r.height * dpr;
+    c.save();
+    // (the 3D view's clip, a polygon in % of its own box, as the page shows it)
+    const m = /polygon\((.*)\)/.exec(st.clipPath || '');
+    if (m) { c.beginPath(); m[1].split(',').forEach((pt, i) => { const [px, py] = pt.trim().split(/\s+/).map(parseFloat); const X = x + px / 100 * w, Y = y + py / 100 * h; i ? c.lineTo(X, Y) : c.moveTo(X, Y); }); c.closePath(); c.clip(); }
+    c.imageSmoothingEnabled = st.imageRendering !== 'pixelated';
+    try { c.drawImage(el, x, y, w, h); } catch (_) {}
+    c.restore();
+  }
+  out.toBlob(b => {
+    if (!b) return;
+    const d = new Date(), z = n => String(n).padStart(2, '0');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b);
+    a.download = `stunts-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}.png`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    if (window.qolSay) qolSay('Screenshot saved (' + W + '\u00d7' + H + ')');
+  }, 'image/png');
 }
 requestAnimationFrame(frame);
