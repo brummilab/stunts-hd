@@ -398,10 +398,15 @@
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.log}Changelog</button>
         <div class="pop">
           <h2>Changelog</h2>
-          <p><b>v1.5.13</b> &middot; Oct 18 2026</p>
+          <p><b>v1.5.14</b> &middot; Oct 18 2026</p>
           <ul>
-            <li>Track editor: the mouse pointer keeps up with the mouse, instead of trailing it in small steps (thanks, brummilab!).</li>
+            <li>Rewind: hold Q to take the race back a second at a time. A rewound race counts as "continued", as in the original: its time goes in no high score table.</li>
+            <li>F10 saves a screenshot at your display's resolution; the key left of 1 shows how smoothly it runs (thanks, brummilab!).</li>
+            <li>On a phone, the hills no longer cover the Play button; other versions of the game are named when picked (thanks, brummilab!).</li>
           </ul>
+          <details><summary>v1.5.13 &middot; Oct 18 2026</summary><ul>
+            <li>Track editor: the mouse pointer keeps up with the mouse, instead of trailing it in small steps (thanks, brummilab!).</li>
+          </ul></details>
           <details><summary>v1.5.12 &middot; Oct 17 2026</summary><ul>
             <li>Replays: the mouse works while the replay plays, so its buttons no longer need a pause first (thanks, brummilab!).</li>
             <li>Desktop app: F and Alt+Enter switch the window in and out of fullscreen (thanks, brummilab!).</li>
