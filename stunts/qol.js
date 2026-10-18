@@ -1,5 +1,6 @@
 // Comforts around the original game, all on the page (the game itself is untouched):
 //   R              restart the race at once (the Replay Menu's "Re-Start Driving", no menus shown)
+//   Q (hold)       rewind the race, a second at a time (the Replay Menu's wind back and "Continue Driving")
 //   Alt+Enter, F   fullscreen (F: not while typing a name)
 //   F9 / F7 / F8   mute, volume down / up (remembered)
 //   F6             your files (saved replays and tracks): download them; drop .TRK / .RPL files on the page
@@ -99,7 +100,7 @@
   let restarting = false;
   async function restart() {
     if (restarting || !racing() || !IB) return;
-    restarting = true;
+    restarting = true; rewound(false);
     try {
       queue.push({ name: 'RESTART', data: 'restart' }); pump();
       while (queue.length || sending || Atomics.load(IB, 0) !== Atomics.load(IB, 1)) await sleep(10);
@@ -109,6 +110,23 @@
       await sleep(30); await tap('Escape', 40); await sleep(300);
     } finally { restarting = false; }
   }
+
+  // ---- rewind (Q, held): the race back a second a press, on while held; the worker winds it back the game's own way
+  // (see worker.js). A race rewound says so in a corner, its replay too, until it is left or started again
+  const rwTag = document.createElement('div');
+  rwTag.textContent = '\u27f2 Rewound';
+  rwTag.style.cssText = 'position:fixed;left:8px;top:8px;padding:.3em .6em;background:rgba(0,0,0,.65);color:#fc6;font:600 12px ui-monospace,Menlo,monospace;border-radius:4px;pointer-events:none;z-index:10;display:none';
+  document.body.appendChild(rwTag);
+  let rwHeld = 0, rwSecs = 0;
+  const rewound = on => { rwTag.style.display = on ? 'block' : 'none'; };
+  const rewindOnce = () => {
+    if (!racing() || !IB) return;
+    queue.push({ name: 'REWIND', data: 'rewind' }); pump();
+    rewound(true); say('\u27f2 ' + (++rwSecs) + ' s');
+  };
+  const rewindStop = () => { clearInterval(rwHeld); rwHeld = 0; rwSecs = 0; };
+  addEventListener('blur', rewindStop);
+  setInterval(() => { if (!view || !view.raceView) rewound(false); }, 500);
 
   // ---- sound: volume 0..1 (the synthesiser's 0..0.5), muted
   let vol = +(load('stunts-vol') || 0.45), muted = load('stunts-mute') === '1', opl = null;
@@ -126,7 +144,7 @@
       const { name, data } = queue.shift();
       while (Atomics.load(IB, 0) !== Atomics.load(IB, 1)) await sleep(20);   // (the worker has taken the last one: one file at a time)
       IU.fill(0, 16, 32); for (let i = 0; i < name.length; i++) IU[16 + i] = name.charCodeAt(i);
-      if (data === 'restart') IB[2] = -3; else if (data === 'pick') IB[2] = -2; else if (data) { IU.set(data, 32); IB[2] = data.length; } else IB[2] = -1;   // (-1: the file is deleted; -2: the track menu takes this track next)
+      if (data === 'restart') IB[2] = -3; else if (data === 'rewind') IB[2] = -4; else if (data === 'pick') IB[2] = -2; else if (data) { IU.set(data, 32); IB[2] = data.length; } else IB[2] = -1;   // (-1: the file is deleted; -2: the track menu takes this track next)
       Atomics.add(IB, 0, 1);
     }
     sending = false;
@@ -225,6 +243,10 @@
     }
     else if (e.code === 'F10') { if (down && !e.repeat && typeof frame === 'function') frame.shot = true; mine = true; }   // (F10: a screenshot, main.js; F1-F4 are the game's own)
     else if (e.code === 'Backquote' && !(typeof typing === 'function' && typing())) { if (down && !e.repeat) perfShow(!perfOn); mine = true; }   // (the key left of 1: how it runs)
+    else if (e.code === 'KeyQ' && !(typeof typing === 'function' && typing()) && (racing() || rwHeld)) {   // (Q: rewind, see above)
+      if (down && !e.repeat) { rewindStop(); rewindOnce(); rwHeld = setInterval(rewindOnce, 300); } else if (!down) rewindStop();
+      mine = true;
+    }
     else if (e.code === 'F6') { if (down) { const open = panel.style.display === 'none'; panel.style.display = open ? 'block' : 'none'; if (open) listFiles(); } mine = true; }
     if (mine) { e.preventDefault(); if (down) swallowed.add(e.code); return true; }
     if (down) held.add(e.code); else held.delete(e.code);

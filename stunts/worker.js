@@ -100,8 +100,8 @@ onmessage = async e => {
   }
   // files dropped on the page arrive through a shared inbox (the worker never returns to its event loop):
   // Int32 [0] the page's count, [1] the worker's, [2] the data's length (-1: delete the file; -2: the track the track menu
-  // takes next, see below); the name (16 bytes) at 16, data at 32
-  let pick = null, restartAt = 0;
+  // takes next, see below; -3: restart, -4: rewind); the name (16 bytes) at 16, data at 32
+  let pick = null, restartAt = 0, rewindAsk = 0;
   if (inbox) {
     const IB = new Int32Array(inbox, 0, 4), IU = new Uint8Array(inbox), hook0 = pc.hook;
     pc.hook = now => {
@@ -110,6 +110,7 @@ onmessage = async e => {
       if (want !== Atomics.load(IB, 1)) {
         let name = ''; for (let i = 16; i < 32 && IU[i]; i++) name += String.fromCharCode(IU[i]);
         if (IB[2] === -3) restartAt = Date.now();
+        else if (IB[2] === -4) rewindAsk++;   // (Q: a second back, see below)
         else if (IB[2] === -2) pick = { name: name.toUpperCase(), t: Date.now() };
         else if (IB[2] < 0) delete pc.saved[name.toUpperCase()]; else pc.saved[name.toUpperCase()] = IU.slice(32, 32 + IB[2]);
         Atomics.store(IB, 1, want); Atomics.notify(IB, 1);
@@ -173,6 +174,24 @@ onmessage = async e => {
   // non-zero), which any key but the race shortcuts skips: Space is pressed for the player as soon as the intro is running (its game
   // frames advancing: keys pressed while the race loads are dropped), so the car is on the line at once.
   const D = StuntsCode.DSEG, SY = StuntsCode.SYM;
+  let rewinding = false;
+  function rewind(r, m, P, seconds) {
+    const GS = StuntsCode.STRUCTS.GAMESTATE.fields, GI = StuntsCode.STRUCTS.GAMEINFO.fields, fr = SY.state + GS.game_frame;
+    const now = pc.rw(D, fr), fps = pc.rw(D, SY.framespersec) || 20, to = Math.max(0, now - seconds * fps);
+    rewinding = true;
+    try {
+      pc.wb(D, SY.game_replay_mode, 2);   // (the recorded keys, as a replay plays)
+      pc.push(r, to); pc.call(r, P, 'restore_gamestate', 4); r.sp = (r.sp + 2) & 0xFFFF;
+      while (pc.rw(D, fr) < to) pc.call(r, P, 'update_gamestate', 4);
+    } finally { rewinding = false; }
+    // "Continue Driving" (loc_244A7, less what is the menu's own: the camera and the dashboard stay as they were)
+    pc.ww(D, SY.elapsed_time2, to); pc.ww(D, SY.gameconfig + GI.game_recordedframes, to);
+    pc.wb(D, SY.game_replay_mode, 0); pc.wb(D, SY.state + GS.game_3F6autoLoadEvalFlag, 0); pc.ww(D, SY.state + GS.game_frame_in_sec, 0); pc.wb(D, SY.byte_449E6, 0);
+    pc.wb(D, SY.byte_449DA, 0);   // (the race no longer over: the menu got here through the replay, which clears it)
+    pc.wb(D, SY.byte_43966, 3);   // (and marked continued, as that menu marks a race taken up again from a rewound replay
+    // (loc_24453): the results say so, and its time goes in no high score table (byte_43966 & 6))
+    return to;
+  }
   let intro = null;
   let lastUF = null, inUF = 0, inRun = 0;
   // The original's bump bug: after touching the other car, a car's extra wheel angle (car_36MwhlAngle) dies away by
@@ -205,6 +224,17 @@ onmessage = async e => {
       pick = null; m.ret(r, 4, 0); r.ax = 1; return;
     }
     return fsd(r, m, P, e);
+  }; }
+  // Q on the page: the race back a second a press, the way the game's own Replay Menu does it: rewound in the replay
+  // (the state kept nearest before, then the recorded keys driven again to the frame, as restore_gamestate and
+  // update_gamestate do when a replay is wound back), then "Continue Driving" from there, as that menu does
+  // (loc_244A7: the recording ends there, the replay off). The original's own code throughout: the state after is
+  // the one the race had then. Only while driving, inside the race routine
+  { const ug = StuntsCode.P.update_gamestate; if (ug && StuntsCode.P.restore_gamestate) StuntsCode.P.update_gamestate = function (r, m, P, e) {
+    if (!rewindAsk || !inRun || rewinding || pc.rb(D, SY.game_replay_mode) !== 0) return ug(r, m, P, e);
+    const back = rewindAsk; rewindAsk = 0;
+    rewind(r, m, P, back);
+    m.ret(r, 4, 0);   // (this frame's update not made: the race carries on from the frame rewound to)
   }; }
   { const rg = StuntsCode.P.run_game; if (rg) StuntsCode.P.run_game = function (r, m, P, e) { inRun++; try { return rg(r, m, P, e); } finally { inRun--; } }; }   // (inside the race routine: the only place a picture may be drawn again)
   StuntsCode.P.update_frame = function (r, m, P, e) {

@@ -380,6 +380,7 @@
             <span><kbd>G</kbd></span><span>Ghost car on and off (once you have a best lap)</span>
             <span><kbd>D</kbd></span><span>Dashboard on and off</span>
             <span><kbd>R</kbd></span><span>Restart the race</span>
+            <span><kbd>Q</kbd> (hold)</span><span>Rewind the race</span>
             <span><kbd>Esc</kbd></span><span>Race menu: replays, restart, quit</span>
             <span><kbd>F</kbd></span><span>Fullscreen</span>
             <span><kbd>F10</kbd></span><span>Screenshot (PNG at your display's resolution)</span>

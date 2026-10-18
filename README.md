@@ -112,6 +112,7 @@ Stunts has a lively community, and other projects take different routes. All but
 | <kbd>G</kbd> | Ghost car on or off |
 | <kbd>D</kbd> | Dashboard on or off |
 | <kbd>R</kbd> | Restart the race |
+| <kbd>Q</kbd> (hold) | Rewind the race, a second at a time (a rewound race says so) |
 | <kbd>Esc</kbd> | Race menu: replays, restart, quit |
 | <kbd>F</kbd> | Fullscreen |
 | <kbd>F10</kbd> | Screenshot: a PNG at your display's resolution |
