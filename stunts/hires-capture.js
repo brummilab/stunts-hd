@@ -208,7 +208,7 @@
       // the truck the car starts in (shape 0x7FD6) is a black box round the camera at the start: left out of the original's own
       // drawing too (its header read as an empty shape for the call), so OG mode shows the road, not a black screen (the HD view
       // leaves it out already)
-      const truck = pc.rw(D, (tsp + 6) & 0xFFFF) === 0x7FD6, hdr = (D << 4) + 0x7FD6, saved = truck ? pc.mem.slice(hdr, hdr + 14) : null;
+      const truck = pc.rw(D, (tsp + 6) & 0xFFFF) === 0x7FD6 && !(opts.keepOriginal && pc.rb(D, S.game_replay_mode) === 1 && pc.rb(D, S.byte_4393C) !== 0), hdr = (D << 4) + 0x7FD6, saved = truck ? pc.mem.slice(hdr, hdr + 14) : null;
       if (truck) pc.mem.fill(0, hdr, hdr + 14);
       try { ts(r, m, PP, e); } finally { curO = -1; if (truck) pc.mem.set(saved, hdr); }
       // the shape's dirty rectangle (polygons widen it inline, other primitives via rect_adjust_from_point)
