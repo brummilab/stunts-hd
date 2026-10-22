@@ -2559,8 +2559,8 @@ vec4 giTap( vec3 p ) {
   // the water's reflection (and its ripples): the whole scene drawn again, at half the picture's width and height, every other
   // picture; ?norefl: off (issue 37)
   const REFL_ON = !/[?&]norefl\b/.test(root.location.search);
-  const CAR_SH_R = 400, CAR_SH_N = 1024;   // each car's own shadow map (carSunsAt): its reach either side of the car, its texels
-  const NEAR_SH_R = 1200, NEAR_SH_N = 2048, NEAR_AHEAD = 800;   // the near map round the camera (a race: the scenery's shadows close by crisp), centred this far ahead
+  const CAR_SH_R = 400, CAR_SH_N = 2048;   // each car's own shadow map (carSunsAt): its reach either side of the car, its texels
+  const NEAR_SH_R = 1200, NEAR_SH_N = 4096, NEAR_AHEAD = 800;   // (4096 again: the track in blocks, it draws only the few round the camera; issue 37)   // the near map round the camera (a race: the scenery's shadows close by crisp), centred this far ahead
   const SH_FADE = { value: new T.Vector2(1e9, 2e9) };   // (a race: the shadows fade out between these distances from the camera, well inside the shadow map's reach)
   const NROOF = 16, ROOF = { a: { value: Array.from({ length: NROOF }, () => new T.Vector4(1, 1, 0, 0)) }, lo: { value: new Array(NROOF).fill(0) } };   // the nearest tunnel roofs' extents (world x0, z0, x1, z1) and heights: under them, shade
   const CAR_P = { value: [new T.Vector4(), new T.Vector4()] };   // the cars' places (w 1: there): their sun shadows darker close to them   // lines' least width on screen, in the original's pixels (the track preview, seen from far: thinner)
