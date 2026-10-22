@@ -222,7 +222,7 @@ onmessage = async e => {
     return to;
   }
   let intro = null;
-  let lastUF = null, inUF = 0, inRun = 0;
+  let lastUF = null, inUF = 0, inRun = 0, lastGF = -1;
   // The original's bump bug: after touching the other car, a car's extra wheel angle (car_36MwhlAngle) dies away by
   // 15/16 a frame, rounded down: from a positive value it reaches 0, from -15 it stays (-225 >> 4 = -15), and the car
   // pulls left for good. Here, after the original's own update, a value stuck in -15..-1 shrinks as a positive one does.
@@ -267,6 +267,22 @@ onmessage = async e => {
     m.ret(r, 4, 0);   // (this frame's update not made: the race carries on from the frame rewound to)
   }; }
   { const rg = StuntsCode.P.run_game; if (rg) StuntsCode.P.run_game = function (r, m, P, e) { inRun++; try { return rg(r, m, P, e); } finally { inRun--; } }; }   // (inside the race routine: the only place a picture may be drawn again)
+  // The game waits by asking, over and over, what the timer says (or whether the screen is in its retrace): a real PC had
+  // nothing else to do, here it held a whole core at work, menus and pauses too, and a laptop slowed down all over (issue 37).
+  // (or for keys and the mouse): asked over 200 times within a millisecond, which no real work does, the worker sleeps 4 ms (the
+  // timer's ticks missed meanwhile are caught up at once, keys still come within that). (k[1037]: tenths of ms slept, to measure)
+  const sleepW = new Int32Array(keys, 4 * 1036, 2);
+  const sleepToTick = cap => { if (pc.inIrq) return; const ms = Math.min(cap, pc.nextTick - performance.now()); if (ms > 0.25) { Atomics.wait(sleepW, 0, 0, ms); Atomics.add(sleepW, 1, Math.round(ms * 10)); } };
+  { let at = 0, n = 0;
+    const idle = () => {
+      if (++n < 200 || pc.inIrq) return;
+      const t = performance.now();
+      if (t - at < 1) { Atomics.wait(sleepW, 0, 0, 4); Atomics.add(sleepW, 1, 40); }
+      at = performance.now(); n = 0;
+    };
+    for (const nm of ['timer_get_counter', 'timer_get_delta', 'timer_custom_delta', 'timer_compare_dx', 'video_get_status', 'kb_check', 'kb_get_char', 'kb_read_char', 'kb_get_key_state', 'get_kb_or_joy_flags', 'mouse_get_state', 'check_input', 'input_do_checking']) {
+      const f = StuntsCode.P[nm]; if (f) StuntsCode.P[nm] = function (r, m, P, e) { idle(); return f(r, m, P, e); };
+    } }
   // The results screen sets its black before it switches to the small font, so the opponent's words take the small font's
   // last colour: in the original, black from the opponent menu, which every race against an opponent went through first. With
   // the opponent remembered from the last visit that menu may never open, and the font's own colour (3, the photo's
@@ -283,6 +299,9 @@ onmessage = async e => {
     if (!inIntro) intro = null;
     else if (!intro) intro = { gf, sent: false };
     else if (!intro.sent && ((gf - intro.gf) & 0xFFFF) >= 2) { intro.sent = true; tellPrefs(); if (!(og && Atomics.load(new Int32Array(og), 0) === 1)) { pc.keyEvent(0x39, 1, 0x20); pc.keyEvent(0x39, 0, 0); } }   // (OG mode: the drive out of the truck plays, as the original's)
+    // (in a race the game draws its picture as fast as it can while its timer moves the cars 20 times a second: drawn again with
+    // the cars where they were, the same picture; here that held a core at work, issue 37. Not moved since: first the next tick)
+    if (gf === lastGF) sleepToTick(12); lastGF = gf;
     inUF++; try { return uf(r, m, P, e); } finally { inUF--; }
   };
   postMessage({ type: 'running' });
