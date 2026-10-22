@@ -269,6 +269,8 @@ addEventListener('keyup', e => key(e, false));
 
 // 320x200 shown at 4:3; the 3D view (modern) as wide as the window, the original screen centred over it
 const WIDE = MODERN && !/[?&]narrow/.test(location.search);
+const res = { k: (() => { try { const v = +localStorage.getItem('stunts-res'); return v > 0.05 && v <= 1 ? v : 1; } catch (_) { return 1; } })(),
+  disp: 16.7, rawAt: 0, n: 0, late: 0, since: 0, upAt: 0 };
 function fit() {
   const s = Math.min(innerWidth / 320, innerHeight / 240), gw = WIDE ? Math.max(320 * s, innerWidth) : 320 * s;   // (as wide as the window, 32:9 too)
   for (const c of [canvas, bgCanvas]) { c.style.width = 320 * s + 'px'; c.style.height = 240 * s + 'px'; }
@@ -276,12 +278,13 @@ function fit() {
   sidesCanvas.style.width = gw + 'px'; sidesCanvas.style.height = 240 * s + 'px';
   const hc = document.getElementById('hud'), dpr = devicePixelRatio || 1;
   hc.style.width = gw + 'px'; hc.style.height = 240 * s + 'px'; hc.width = Math.round(gw * dpr); hc.height = Math.round(240 * s * dpr); hud.drawn = null;
-  // (the 3D view at most about a million pixels, a 1330x750's worth, scaled up: a Retina screen's own was over 5 million, more than
-  // a laptop's graphics chip draws smoothly, for little more to see in a game of flat faces; the menus and text stay at the
-  // screen's own; ?full for every pixel, ?lite about 0.6 million; issue 37)
+  // (the 3D view at most about 5.2 million pixels (2880x1800's worth), times the share the graphics chip keeps up with (res.k,
+  // below: lowered while pictures come late, raised again when they're on time), never under about half a million; the menus
+  // and text stay at the screen's own; ?full: every pixel, always; ?lite: at most about 0.6 million; issue 37)
   const px = Math.round(gw) * Math.round(240 * s), full = /[?&]full\b/.test(location.search);
-  const cap = full ? dpr : Math.min(dpr, Math.sqrt((LITE ? 0.6e6 : 1.0e6) / px));
-  if (view) view.resize(Math.round(gw), Math.round(240 * s), cap, gw / (320 * s));
+  const cap = full ? dpr : Math.min(dpr, Math.sqrt((LITE ? 0.6e6 : 5.2e6) / px)), floor = Math.min(cap, Math.sqrt(0.5e6 / px));
+  res.kmin = Math.min(1, floor / cap); res.k = Math.max(res.k, res.kmin);
+  if (view) view.resize(Math.round(gw), Math.round(240 * s), full ? cap : Math.max(floor, cap * res.k), gw / (320 * s));
 }
 // The race display: time, speed and camera in the font and style of the game's race messages ("Fasten your
 // Seatbelt!": FONTDEF.FNT, a solid black shadow a pixel down and right), crisp in the corners of the screen,
@@ -493,7 +496,24 @@ function pointerBox() {
   const [x, y] = pointerAt;
   return [x, y, x + w, y + h];
 }
+// The 3D view's resolution, to what the graphics chip keeps up with: in a race, the pictures that came late (over 1.4 times the
+// screen's interval apart) counted each second; a tenth or more late, 15% fewer pixels' worth; none late for 2 seconds, 15% more,
+// up to the cap (fit). Kept from race to race and visit to visit (a laptop on battery starts where it settled; issue 37)
+function resTick(t, drew, racing) {
+  const raw = t - res.rawAt; res.rawAt = t;
+  if (raw > 2 && raw < 40) res.disp = raw < res.disp ? res.disp * 0.8 + raw * 0.2 : res.disp + (raw - res.disp) * 0.002;   // (the screen's interval)
+  if (!drew || !racing || /[?&]full\b/.test(location.search)) { res.n = res.late = 0; res.since = t; return; }
+  const want = res.disp < 10 && !FPS120 ? 2 * res.disp : res.disp, gap = t - (res.drawAt || t); res.drawAt = t;
+  if (gap > 0 && gap < 2000) { res.n++; if (gap > want * 1.4) res.late++; }
+  if (t - res.since < 1000) return;
+  const k0 = res.k;
+  if (res.n && res.late / res.n >= 0.1) { res.k = Math.max(res.kmin || 0.05, res.k * 0.85); res.upAt = t; }
+  else if (!res.late && res.k < 1 && t - res.upAt > 2000) { res.k = Math.min(1, res.k * 1.15); res.upAt = t; }
+  res.n = res.late = 0; res.since = t;
+  if (res.k !== k0) { fit(); try { localStorage.setItem('stunts-res', res.k.toFixed(3)); } catch (_) {} }
+}
 function frame(t) {   // t: the display frame's time (steadier than reading the clock mid-work)
+  { const drew = FPS120 || t - (frame.at || 0) >= 10; resTick(t, drew, !!(view && view.raceView && t - (view.lastFrame || 0) < 1500)); }
   // (on a screen faster than 100 Hz, every other picture: a 120 Hz screen drew twice as many for a game that moves 20 times a
   // second, and the graphics chip, shared with the whole computer, could not keep up; ?fps120 to draw them all; issue 37)
   if (!FPS120 && t - (frame.at || 0) < 10) { requestAnimationFrame(frame); return; }
