@@ -38,10 +38,11 @@
       const r = this.r; this.phone = !!opts.phone || !!opts.lite; this.lite = !!opts.lite;   // (lite: an older graphics chip, as a phone and lighter still, issue 37)
       r.setClearColor(0x000000, 0);
       r.outputEncoding = T.sRGBEncoding;
-      r.shadowMap.enabled = true; r.shadowMap.type = T.PCFSoftShadowMap;   // (filtered, then re-sharpened in getShadow: straight hard edges, no stair steps, no blur)
+      r.shadowMap.enabled = !/[?&]noshadow\b/.test(root.location.search); r.shadowMap.type = T.PCFSoftShadowMap;   // (?noshadow, ?flat: to measure what the picture costs, issue 37)   // (filtered, then re-sharpened in getShadow: straight hard edges, no stair steps, no blur)
       this.W = new Int32Array(opts.world); this.bgU8 = new Uint8Array(opts.bg); this.worldVer = -1;
       this.cache = new Map(); this.geoCache = new Map();
       this.scene = new T.Scene();
+      if (/[?&]flat\b/.test(root.location.search)) this.scene.overrideMaterial = new T.MeshBasicMaterial({ vertexColors: true });
       this.cam = new T.Camera(); this.cam.matrixAutoUpdate = false; this.cam.far = FAR; this.cam.near = NEAR;
       this.scene.fog = new T.Fog(0xffffff, 9000, 90000);
       this.hemi = new T.HemisphereLight(0xdfeeff, 0x6a6048, 0.4); this.scene.add(this.hemi);
