@@ -269,19 +269,25 @@ onmessage = async e => {
   { const rg = StuntsCode.P.run_game; if (rg) StuntsCode.P.run_game = function (r, m, P, e) { inRun++; try { return rg(r, m, P, e); } finally { inRun--; } }; }   // (inside the race routine: the only place a picture may be drawn again)
   // The game waits by asking, over and over, what the timer says (or whether the screen is in its retrace): a real PC had
   // nothing else to do, here it held a whole core at work, menus and pauses too, and a laptop slowed down all over (issue 37).
-  // (or for keys and the mouse): asked over 200 times within a millisecond, which no real work does, the worker sleeps 4 ms (the
+  // Asked over 200 times within a millisecond, which no real work does, the worker sleeps 4 ms (the
   // timer's ticks missed meanwhile are caught up at once, keys still come within that). (k[1037]: tenths of ms slept, to measure)
   const sleepW = new Int32Array(keys, 4 * 1036, 2);
   const sleepToTick = cap => { if (pc.inIrq) return; const ms = Math.min(cap, pc.nextTick - performance.now()); if (ms > 0.25) { Atomics.wait(sleepW, 0, 0, ms); Atomics.add(sleepW, 1, Math.round(ms * 10)); } };
+  // (the screen's retrace, on 1.2 ms of every 14.3 (dos.js, port 0x3DA): not slept past, or a wait for it missed it and took
+  // several: the worker sleeps then only until it next goes on or off)
   { let at = 0, n = 0;
-    const idle = () => {
+    const idle = retrace => {
       if (++n < 200 || pc.inIrq) return;
       const t = performance.now();
-      if (t - at < 1) { Atomics.wait(sleepW, 0, 0, 4); Atomics.add(sleepW, 1, 40); }
+      if (t - at < 1) {
+        let ms = 4; if (retrace) { const ph = pc.now() % 14.3; ms = Math.min(4, (ph < 1.2 ? 1.2 : 14.3) - ph + 0.05); }
+        if (ms > 0.25) { Atomics.wait(sleepW, 0, 0, ms); Atomics.add(sleepW, 1, Math.round(ms * 10)); }
+      }
       at = performance.now(); n = 0;
     };
-    for (const nm of ['timer_get_counter', 'timer_get_delta', 'timer_custom_delta', 'timer_compare_dx', 'video_get_status', 'kb_check', 'kb_get_char', 'kb_read_char', 'kb_get_key_state', 'get_kb_or_joy_flags', 'mouse_get_state', 'check_input', 'input_do_checking']) {
-      const f = StuntsCode.P[nm]; if (f) StuntsCode.P[nm] = function (r, m, P, e) { idle(); return f(r, m, P, e); };
+    { const f = StuntsCode.P.video_get_status; if (f) StuntsCode.P.video_get_status = function (r, m, P, e) { idle(true); return f(r, m, P, e); }; }
+    for (const nm of ['timer_get_counter', 'timer_get_delta', 'timer_custom_delta', 'timer_compare_dx']) {
+      const f = StuntsCode.P[nm]; if (f) StuntsCode.P[nm] = function (r, m, P, e) { idle(false); return f(r, m, P, e); };
     } }
   // The results screen sets its black before it switches to the small font, so the opponent's words take the small font's
   // last colour: in the original, black from the opponent menu, which every race against an opponent went through first. With
