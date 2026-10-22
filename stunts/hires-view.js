@@ -90,7 +90,10 @@
       // what the original drew is shown (its facing tests hide the inside of buildings the camera is in);
       // whole shapes cast the shadows
       this.dyn.mesh.castShadow = false;
-      this.dynShadow = new DynBuf(new T.MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: T.DoubleSide })); this.dynShadow.mesh.castShadow = true; this.dynShadow.noSee = 'upright';   // (see-through faces standing up cast no shadow: a fence's or grate's shadow is its solid frame; lying flat facing up, a bridge's deck, they do)
+      this.dynShadow = new DynBuf(new T.MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: T.DoubleSide })); this.dynShadow.mesh.castShadow = true; this.dynShadow.noSee = 'upright';
+      // (drawn into the shadow maps only: in the views it wrote nothing, but every vertex of it was worked all the same. Its count
+      // zeroed for a view's draw (onBeforeRender, which three.js calls for the views, not for a shadow map's), put back after; issue 37)
+      { const m = this.dynShadow.mesh; m.onBeforeRender = (r, sc, c, g) => { g.userData.keepN = g.drawRange.count; g.drawRange.count = 0; }; m.onAfterRender = (r, sc, c, g) => { g.drawRange.count = g.userData.keepN; }; }   // (see-through faces standing up cast no shadow: a fence's or grate's shadow is its solid frame; lying flat facing up, a bridge's deck, they do)
       this.scene.add(this.dyn.mesh, this.bgDyn.mesh, this.dynFlat.mesh, this.dynShadow.mesh);
       // the cars' shadows in a race, crisp: each car its own small shadow map from the sun, many times finer than the sun's
       // (whose texels, over its reach, rounded a car's shadow and stepped its edges as it moved); the cars cast only into
