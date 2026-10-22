@@ -295,15 +295,27 @@ void main() {
           const L = noLap.get(a.i) || []; if (!L.some(q => q.ax === a.ax && q.B === a.B)) L.push({ ax: a.ax, B: a.B, h: a.h, lat: a.lat }); noLap.set(a.i, L);
         }
       this.noLap = noLap;   // (for checking)
+      // each shape's copies in blocks of 8x8 tiles, each block a mesh of its own with a sphere round its copies: the views and
+      // the shadow maps draw only the blocks they reach (one mesh for the whole track was drawn whole into every one; issue 37)
+      const chunks = [];
       for (const gr of groups.values()) {
+        const by = new Map();
+        for (const o of gr.list) { const ck = Math.floor(W[o + 3] / 8192) + ',' + Math.floor(-W[o + 5] / 8192); if (!by.has(ck)) by.set(ck, []); by.get(ck).push(o); }
+        for (const list of by.values()) chunks.push({ hi: gr.hi, paint: gr.paint, layer: gr.layer, list });
+      }
+      for (const gr of chunks) {
         const geo = this.shapeGeo(gr.hi, Math.max(0, gr.paint), gr.layer);
         if (!geo) continue;
+        if (!geo.boundingSphere) geo.computeBoundingSphere();
+        { const c = new T.Vector3(); for (const o of gr.list) c.add(v3.set(W[o + 3], W[o + 4], -W[o + 5])); c.divideScalar(gr.list.length);
+          let rr = 0; for (const o of gr.list) rr = Math.max(rr, c.distanceTo(v3.set(W[o + 3], W[o + 4], -W[o + 5])));
+          gr.sphere = new T.Sphere(c, rr + (geo.boundingSphere.center.length() + geo.boundingSphere.radius) * 1.01 + 8); }
         const isec = new T.InstancedBufferAttribute(new Float32Array(gr.list.length), 1).setUsage(T.DynamicDrawUsage);
-        const im = new T.InstancedMesh(withSec(geo, isec), this.matPair, gr.list.length);
+        const im = new ChunkMesh(withSec(geo, isec, gr.sphere), this.matPair, gr.list.length);
         gr.isec = isec; gr.inst = gr.list.map(o => [W[o + 3], W[o + 4], -W[o + 5], -W[o + 6] * Math.PI * 2 / 1024]);
         gr.unk = geo.boundingBox || (geo.computeBoundingBox(), geo.boundingBox);
         gr.unk = Math.max(-gr.unk.min.x, gr.unk.max.x, -gr.unk.min.z, gr.unk.max.z) > 0x280 ? 0x800 : 0x400;
-        im.castShadow = !geo.userData.flat; im.receiveShadow = true; im.frustumCulled = false; im.customDepthMaterial = depthNoSee();
+        im.castShadow = !geo.userData.flat; im.receiveShadow = true; im.frustumCulled = true; im.customDepthMaterial = depthNoSee();
         im.userData = gr; if (!gr.layer || geo.userData.flat) im.layers.enable(1);
         // (its shadow is its own, from the shape drawn: the game's low-detail shapes for the distance, cast instead to save
         // triangles, left out whole parts (a windmill's sails and most of its body, a barn's roof, ramps entirely))
@@ -1074,7 +1086,7 @@ void main() {
               if (gr.sailQ !== q || !im.geometry.userData.key || im.geometry.userData.key.indexOf(':sail') < 0) {
                 // (each of the 192 turns made once and kept: a new geometry a frame would pile up on the GPU)
                 const sg = gr.sailGeos || (gr.sailGeos = []);
-                if (!sg[q]) { const g = this.shapeGeo(gr.hi, 0, gr.layer, this.sailShape(si, q)); if (g) sg[q] = withSec(g, gr.isec); }
+                if (!sg[q]) { const g = this.shapeGeo(gr.hi, 0, gr.layer, this.sailShape(si, q)); if (g) sg[q] = withSec(g, gr.isec, gr.sphere); }
                 if (sg[q]) { im.geometry = sg[q]; gr.sailQ = q; }
               }
               continue;
@@ -1086,7 +1098,7 @@ void main() {
           // means the memory now holds something else, as when a race ends and the game loads other shapes there)
           if (!was || key.split(':').slice(0, 4).join(':') !== was.split(':').slice(0, 4).join(':')) continue;
           const g = this.shapeGeo(gr.hi, paint, gr.layer);
-          if (g) im.geometry = withSec(g, gr.isec);
+          if (g) im.geometry = withSec(g, gr.isec, gr.sphere);
         }
         this.viewSectors();
       }
@@ -2689,10 +2701,15 @@ vec4 giTap( vec3 p ) {
   const ghostGet = track => gdb().then(db => new Promise(res => { const r = db.transaction('g').objectStore('g').get(track); r.onsuccess = () => res(r.result || null); r.onerror = () => res(null); })).catch(() => null);
   const ghostSet = (track, v) => gdb().then(db => putBetter(db, track, v)).catch(() => {});
   // a static shape's geometry with its own per-instance sector attribute (the shape's attributes shared)
-  function withSec(g, isec) {
+  // (an instanced mesh for a block of the track: culled by its sphere round its copies (geometry.boundingSphere, world space);
+  // rays tested against each copy with the shape's own sphere, as three.js does for one)
+  class ChunkMesh extends T.InstancedMesh {
+    raycast(rc, out) { const g = this.geometry, s = g.boundingSphere; g.boundingSphere = g.ownSphere || null; try { super.raycast(rc, out); } finally { g.boundingSphere = s; } }
+  }
+  function withSec(g, isec, sphere) {
     const n = new T.BufferGeometry();
     for (const k in g.attributes) n.setAttribute(k, g.attributes[k]);
-    n.setAttribute('isec', isec); for (const gr of g.groups) n.addGroup(gr.start, gr.count, gr.materialIndex); n.userData = g.userData; n.boundingSphere = g.boundingSphere; n.boundingBox = g.boundingBox;
+    n.setAttribute('isec', isec); for (const gr of g.groups) n.addGroup(gr.start, gr.count, gr.materialIndex); n.userData = g.userData; if (!g.boundingSphere) g.computeBoundingSphere(); n.boundingSphere = sphere || g.boundingSphere; n.ownSphere = g.boundingSphere; n.boundingBox = g.boundingBox;
     return n;
   }
   const NOCULL = /[?&]nocull/.test(root.location ? root.location.search : '');   // (debug: no back-face culling)

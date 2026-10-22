@@ -270,7 +270,8 @@ onmessage = async e => {
   // The game waits by asking, over and over, what the timer says (or whether the screen is in its retrace): a real PC had
   // nothing else to do, here it held a whole core at work, menus and pauses too, and a laptop slowed down all over (issue 37).
   // Asked over 200 times within a millisecond, which no real work does, the worker sleeps 4 ms (the
-  // timer's ticks missed meanwhile are caught up at once, keys still come within that). (k[1037]: tenths of ms slept, to measure)
+  // timer's ticks missed meanwhile are caught up at once). Not on the game's key and mouse checks: slept there, a key went unseen
+  // (Enter on the title). (k[1037]: tenths of ms slept, to measure)
   const sleepW = new Int32Array(keys, 4 * 1036, 2);
   const sleepToTick = cap => { if (pc.inIrq) return; const ms = Math.min(cap, pc.nextTick - performance.now()); if (ms > 0.25) { Atomics.wait(sleepW, 0, 0, ms); Atomics.add(sleepW, 1, Math.round(ms * 10)); } };
   // (the screen's retrace, on 1.2 ms of every 14.3 (dos.js, port 0x3DA): not slept past, or a wait for it missed it and took
