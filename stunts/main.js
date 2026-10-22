@@ -131,7 +131,7 @@ const bgImg = bgG.createImageData(320, 200), bgPx = new Uint32Array(bgImg.data.b
 // a phone (a touch screen and no mouse): the 3D view drawn at up to twice its page pixels, not a phone's three times (over
 // twice the pixels to draw, for little more to see), and its far shadows from a smaller map (?full: as on a computer)
 // (no mouse: nothing that can hover; some Android phones report a fine pointer with none connected, issue 27)
-const FPS60 = /[?&]fps60\b/.test(location.search);
+const FPS120 = /[?&]fps120\b/.test(location.search);
 const PHONE = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-hover: hover)').matches && !/[?&]full\b/.test(location.search);
 // ?lite: lighter still, the 3D view at most about 0.8 million pixels, no water reflections or ambient occlusion (issue 37)
 const LITE = /[?&]lite\b/.test(location.search);
@@ -276,11 +276,11 @@ function fit() {
   sidesCanvas.style.width = gw + 'px'; sidesCanvas.style.height = 240 * s + 'px';
   const hc = document.getElementById('hud'), dpr = devicePixelRatio || 1;
   hc.style.width = gw + 'px'; hc.style.height = 240 * s + 'px'; hc.width = Math.round(gw * dpr); hc.height = Math.round(240 * s * dpr); hud.drawn = null;
-  // (the 3D view at most about 1.2 million pixels, a 1460x820's worth, scaled up: a Retina screen's own was over 5 million, more than
+  // (the 3D view at most about a million pixels, a 1330x750's worth, scaled up: a Retina screen's own was over 5 million, more than
   // a laptop's graphics chip draws smoothly, for little more to see in a game of flat faces; the menus and text stay at the
-  // screen's own; ?full for every pixel, ?lite about 0.8 million; issue 37)
+  // screen's own; ?full for every pixel, ?lite about 0.6 million; issue 37)
   const px = Math.round(gw) * Math.round(240 * s), full = /[?&]full\b/.test(location.search);
-  const cap = full ? dpr : Math.min(dpr, Math.sqrt((LITE ? 0.8e6 : 1.2e6) / px));
+  const cap = full ? dpr : Math.min(dpr, Math.sqrt((LITE ? 0.6e6 : 1.0e6) / px));
   if (view) view.resize(Math.round(gw), Math.round(240 * s), cap, gw / (320 * s));
 }
 // The race display: time, speed and camera in the font and style of the game's race messages ("Fasten your
@@ -494,8 +494,9 @@ function pointerBox() {
   return [x, y, x + w, y + h];
 }
 function frame(t) {   // t: the display frame's time (steadier than reading the clock mid-work)
-  // (?fps60: on a screen faster than 100 Hz, every other picture, for a graphics chip that can't keep up)
-  if (FPS60 && t - (frame.at || 0) < 10) { requestAnimationFrame(frame); return; }
+  // (on a screen faster than 100 Hz, every other picture: a 120 Hz screen drew twice as many for a game that moves 20 times a
+  // second, and the graphics chip, shared with the whole computer, could not keep up; ?fps120 to draw them all; issue 37)
+  if (!FPS120 && t - (frame.at || 0) < 10) { requestAnimationFrame(frame); return; }
   frame.at = t;
   // one snapshot of the screen and the see-through marks for this whole frame: the game runs on meanwhile,
   // and two layers built from different moments leave holes where pixels turned see-through in between
