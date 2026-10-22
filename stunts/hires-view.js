@@ -35,7 +35,7 @@
     // drawn (animated vertices and paint jobs stay right); everywhere else the same shapes, placed by
     // the worker's whole-track walk, come from the static track meshes.
     initModern(opts) {
-      const r = this.r; this.phone = !!opts.phone;
+      const r = this.r; this.phone = !!opts.phone || !!opts.lite; this.lite = !!opts.lite;   // (lite: an older graphics chip, as a phone and lighter still, issue 37)
       r.setClearColor(0x000000, 0);
       r.outputEncoding = T.sRGBEncoding;
       r.shadowMap.enabled = true; r.shadowMap.type = T.PCFSoftShadowMap;   // (filtered, then re-sharpened in getShadow: straight hard edges, no stair steps, no blur)
@@ -211,7 +211,7 @@ void main() {
         new root.StuntsGrass(r, this.scene, { R: 900, CELL: 32, PER: 56, FADE: 0.6 }),                                       // dense, near
         new root.StuntsGrass(r, this.scene, { R: 5200, CELL: 150, PER: 36, SIZE: 2.4, R0: 700, FADE: 0.35, MAPN: 1024, every: 24 }),   // to the horizon
       ] : null;
-      this.aoPass = !OG && root.StuntsAO && !/[?&]noao/.test(root.location.search) ? new root.StuntsAO(r) : null;
+      this.aoPass = !OG && !this.lite && root.StuntsAO && !/[?&]noao/.test(root.location.search) ? new root.StuntsAO(r) : null;
       this.seq = -1; this.lastFrame = 0;
       this.prewarm();
     }
@@ -1356,7 +1356,7 @@ void main() {
       this.ogGhost = null;
       if (this.ogHide) { this.ogGhostDraw(); return true; }   // (OG mode in a race: the 3D layers are invisible, so nothing is drawn: no shadows, reflections or passes; the ghost alone, for the page)
       // (the water's reflection, the whole scene drawn again: every other frame, the last one standing between)
-      if (race && !/[?&]norefl/.test(root.location.search) && this.waterInView()) { if ((this.reflN = (this.reflN || 0) + 1) % 2 || !REFL.on.value || this.reflFor !== 'race') { this.reflect(); this.reflFor = 'race'; } } else REFL.on.value = 0;
+      if (race && !this.lite && !/[?&]norefl/.test(root.location.search) && this.waterInView()) { if ((this.reflN = (this.reflN || 0) + 1) % 2 || !REFL.on.value || this.reflFor !== 'race') { this.reflect(); this.reflFor = 'race'; } } else REFL.on.value = 0;
       { const cp = this.camPos || new T.Vector3();
         // (the roofs as strips: pieces in a row joined, so a long tunnel takes one slot and the nearest strips cover
         // every tunnel in view; ranked by the camera's or a car's distance to the strip, whichever is nearer: a TV
@@ -2162,7 +2162,7 @@ void main() {
       this.r.autoClear = false; this.r.clear();
       this.domeMat.uniforms.sunDir.value.copy(sunDir);
       // (the water's reflection seen from this camera, every other frame: not the last race's)
-      if (!/[?&]norefl/.test(root.location.search) && this.waterInView()) { if ((this.reflN = (this.reflN || 0) + 1) % 2 || !REFL.on.value || this.reflFor !== 'pv') { this.reflect(); this.reflFor = 'pv'; } } else REFL.on.value = 0;
+      if (!this.lite && !/[?&]norefl/.test(root.location.search) && this.waterInView()) { if ((this.reflN = (this.reflN || 0) + 1) % 2 || !REFL.on.value || this.reflFor !== 'pv') { this.reflect(); this.reflFor = 'pv'; } } else REFL.on.value = 0;
       this.r.render(this.domeScene, this.cam);
       if (this.stripOn) this.r.render(this.stripScene, this.skyCam);
       this.giFrame();

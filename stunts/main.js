@@ -133,7 +133,14 @@ const bgImg = bgG.createImageData(320, 200), bgPx = new Uint32Array(bgImg.data.b
 // (no mouse: nothing that can hover; some Android phones report a fine pointer with none connected, issue 27)
 const FPS60 = /[?&]fps60\b/.test(location.search);
 const PHONE = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-hover: hover)').matches && !/[?&]full\b/.test(location.search);
-const view = HIRES ? new HiresView(glCanvas, mem, pal, scene, StuntsCode.DSEG, StuntsCode.SYM, MODERN ? { world, bg, phone: PHONE } : {}) : null;
+// an older graphics chip (an Intel HD or UHD of the laptops of ten years ago and so, issue 37): as a phone and lighter still: the 3D
+// view at most about a million pixels, no water reflections or ambient occlusion (?lite on any, ?nolite or ?full: off)
+const LITE = /[?&]lite\b/.test(location.search) || !/[?&](nolite|full)\b/.test(location.search) && (() => {
+  try { const gl = document.createElement('canvas').getContext('webgl'), x = gl && gl.getExtension('WEBGL_debug_renderer_info');
+    const name = x ? gl.getParameter(x.UNMASKED_RENDERER_WEBGL) : ''; if (gl && gl.getExtension('WEBGL_lose_context')) gl.getExtension('WEBGL_lose_context').loseContext();
+    return /Intel.*\b(HD Graphics( \d{3,4})?|Iris\(?R?\)?( Pro)? Graphics \d{3,4}|UHD Graphics 6\d\d)\b/i.test(name) && !/Iris\(R\) Xe|Arc/i.test(name);
+  } catch (_) { return false; } })();
+const view = HIRES ? new HiresView(glCanvas, mem, pal, scene, StuntsCode.DSEG, StuntsCode.SYM, MODERN ? { world, bg, phone: PHONE, lite: LITE } : {}) : null;
 const NOHUD = /[?&]nohud/.test(location.search);
 const DASHM = ((/[?&]dash=(\w+)/.exec(location.search) || [])[1] || 'curve');   // (the widescreen dashboard: curve, the default; ?dash=flat the old flat colours)
 // (?dash=curve: the dashboard carried out to the sides bending down: each column further out drawn lower, on a curve that
@@ -277,7 +284,7 @@ function fit() {
   // (the 3D view at most about 2880x1800 pixels' worth: a large Retina screen's full size was more than the graphics chip
   // could draw each frame; the menus and text stay at the screen's own; ?full for every pixel)
   const px = Math.round(gw) * Math.round(240 * s), cap = /[?&]full\b/.test(location.search) ? dpr : Math.max(1, Math.min(dpr, Math.sqrt(5.2e6 / px)));
-  if (view) view.resize(Math.round(gw), Math.round(240 * s), PHONE ? Math.min(2, cap) : cap, gw / (320 * s));
+  if (view) view.resize(Math.round(gw), Math.round(240 * s), LITE ? Math.min(cap, Math.sqrt(1.0e6 / px)) : PHONE ? Math.min(2, cap) : cap, gw / (320 * s));
 }
 // The race display: time, speed and camera in the font and style of the game's race messages ("Fasten your
 // Seatbelt!": FONTDEF.FNT, a solid black shadow a pixel down and right), crisp in the corners of the screen,
