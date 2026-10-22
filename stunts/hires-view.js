@@ -1341,8 +1341,11 @@ void main() {
       // so a map kept from an earlier frame still falls where it did)
       const sh = this.sun.shadow; sh.autoUpdate = !race;   // (it was every frame off a phone: an 8192 map, a large share of the graphics chip's work)
       this.slot = true;   // (one timed redraw a frame, of the far map, the near map or the car's reflections: drawn on the same frame they made it stutter; one that has moved is drawn at once)
+      // (moved a little, as a TV camera's pan moves the focus 4500 ahead of it every frame: drawn again in its turn, as the
+      // timed redraw; moved far (a camera change, a jump) or its reach changed: at once. Drawn on every move it stuttered, issue 27)
       if (!sh.autoUpdate) { const k = focus.x + ',' + focus.y + ',' + focus.z + ',' + ext; const tn = performance.now();
-      if (k !== this.sunKey || tn - (this.sunAt || 0) > 50 && this.takeSlot()) { sh.needsUpdate = true; this.sunKey = k; this.sunAt = tn; } }
+      const far = !this.sunFocus || this.sunExt !== ext || this.sunFocus.distanceTo(focus) > ext * 0.2;
+      if (k !== this.sunKey && far || tn - (this.sunAt || 0) > 50 && this.takeSlot()) { sh.needsUpdate = true; this.sunKey = k; this.sunAt = tn; this.sunFocus = focus.clone(); this.sunExt = ext; } }
       if (this.carSuns && !this.ogHide) { this.carSunsAt(race, cars, ease, sunDir); this.nearSunAt(race, fwd, sunDir); }
       this.explosions(now, race, camWorld);
       this.tyreMarks(race, cars, ease);
@@ -1802,8 +1805,10 @@ void main() {
       l.target.updateMatrixWorld(); l.updateMatrixWorld(); l.userData.parked = false;
       // (drawn again when it has moved, or every 50 ms for what moves in it: drawn every display frame, twice as often on a
       // 120 Hz screen, it was a large share of the graphics chip's work; its matrix is set as it is drawn, so a kept map falls where it did)
-      const k = fx + ',' + fy + ',' + fz, tn = performance.now();
-      if (k !== this.nearKey || tn - (this.nearAt || 0) > 50 && this.takeSlot()) { l.shadow.needsUpdate = true; this.nearKey = k; this.nearAt = tn; }
+      // (moved a little, as with a TV camera's pan: in its turn too; moved far: at once, issue 27)
+      const k = fx + ',' + fy + ',' + fz, tn = performance.now(), at = l.target.position;
+      const far = !this.nearFocus || this.nearFocus.distanceTo(at) > NEAR_SH_R * 0.2;
+      if (k !== this.nearKey && far || tn - (this.nearAt || 0) > 50 && this.takeSlot()) { l.shadow.needsUpdate = true; this.nearKey = k; this.nearAt = tn; this.nearFocus = at.clone(); }
     }
 
     // Your best run on each track, raced again as a see-through ghost car. While you drive, the car's place is

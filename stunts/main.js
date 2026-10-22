@@ -130,8 +130,9 @@ const bgImg = bgG.createImageData(320, 200), bgPx = new Uint32Array(bgImg.data.b
   } }
 // a phone (a touch screen and no mouse): the 3D view drawn at up to twice its page pixels, not a phone's three times (over
 // twice the pixels to draw, for little more to see), and its far shadows from a smaller map (?full: as on a computer)
+// (no mouse: nothing that can hover; some Android phones report a fine pointer with none connected, issue 27)
 const FPS60 = /[?&]fps60\b/.test(location.search);
-const PHONE = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches && !/[?&]full\b/.test(location.search);
+const PHONE = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-hover: hover)').matches && !/[?&]full\b/.test(location.search);
 const view = HIRES ? new HiresView(glCanvas, mem, pal, scene, StuntsCode.DSEG, StuntsCode.SYM, MODERN ? { world, bg, phone: PHONE } : {}) : null;
 const NOHUD = /[?&]nohud/.test(location.search);
 const DASHM = ((/[?&]dash=(\w+)/.exec(location.search) || [])[1] || 'curve');   // (the widescreen dashboard: curve, the default; ?dash=flat the old flat colours)
