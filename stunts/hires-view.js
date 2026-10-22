@@ -46,7 +46,7 @@
       this.scene.fog = new T.Fog(0xffffff, 9000, 90000);
       this.hemi = new T.HemisphereLight(0xdfeeff, 0x6a6048, 0.4); this.scene.add(this.hemi);
       const sun = this.sun = new T.DirectionalLight(0xfff2dc, 0.68);   // level ground: about its original colour; walls darker
-      sun.castShadow = true; sun.shadow.mapSize.setScalar(opts.phone ? 4096 : 8192);   // (texels of under half a unit round the camera: crisp edges; a phone's half that, the near map keeps close ones crisp)
+      sun.castShadow = true; sun.shadow.mapSize.setScalar(2048);   // (was 8192, a phone's 4096: as large again as the picture several times over, drawn often; the near map keeps close shadows crisp, issue 37)   // (texels of under half a unit round the camera: crisp edges; a phone's half that, the near map keeps close ones crisp)
       sun.shadow.camera.layers.enable(3);   // (the track's shadows cast by its pieces' low-detail shapes, on layer 3 only: see buildWorld)
       sun.shadow.bias = -0.00012; sun.shadow.normalBias = +((root.location && /[?&]nb=([\d.]+)/.exec(root.location.search)) || [0, 1.2])[1];   // (small: shadows touch what casts them)
       const sc = sun.shadow.camera; sc.left = -2600; sc.right = 2600; sc.top = 2600; sc.bottom = -2600; sc.near = 10; sc.far = 16000;
@@ -211,7 +211,8 @@ void main() {
         new root.StuntsGrass(r, this.scene, { R: 900, CELL: 32, PER: 56, FADE: 0.6 }),                                       // dense, near
         new root.StuntsGrass(r, this.scene, { R: 5200, CELL: 150, PER: 36, SIZE: 2.4, R0: 700, FADE: 0.35, MAPN: 1024, every: 24 }),   // to the horizon
       ] : null;
-      this.aoPass = !OG && !this.lite && root.StuntsAO && !/[?&]noao/.test(root.location.search) ? new root.StuntsAO(r) : null;
+      this.aoPass = !OG && root.StuntsAO && /[?&](ao|full)\b/.test(root.location.search) ?   // (off unless ?ao or ?full: a pass over the whole picture each frame, for little to see, issue 37)
+         new root.StuntsAO(r) : null;
       this.seq = -1; this.lastFrame = 0;
       this.prewarm();
     }
@@ -1356,7 +1357,7 @@ void main() {
       this.ogGhost = null;
       if (this.ogHide) { this.ogGhostDraw(); return true; }   // (OG mode in a race: the 3D layers are invisible, so nothing is drawn: no shadows, reflections or passes; the ghost alone, for the page)
       // (the water's reflection, the whole scene drawn again: every other frame, the last one standing between)
-      if (race && !this.lite && !/[?&]norefl/.test(root.location.search) && this.waterInView()) { if ((this.reflN = (this.reflN || 0) + 1) % 2 || !REFL.on.value || this.reflFor !== 'race') { this.reflect(); this.reflFor = 'race'; } } else REFL.on.value = 0;
+      if (race && REFL_ON && this.waterInView()) { if ((this.reflN = (this.reflN || 0) + 1) % 2 || !REFL.on.value || this.reflFor !== 'race') { this.reflect(); this.reflFor = 'race'; } } else REFL.on.value = 0;
       { const cp = this.camPos || new T.Vector3();
         // (the roofs as strips: pieces in a row joined, so a long tunnel takes one slot and the nearest strips cover
         // every tunnel in view; ranked by the camera's or a car's distance to the strip, whichever is nearer: a TV
@@ -2162,7 +2163,7 @@ void main() {
       this.r.autoClear = false; this.r.clear();
       this.domeMat.uniforms.sunDir.value.copy(sunDir);
       // (the water's reflection seen from this camera, every other frame: not the last race's)
-      if (!this.lite && !/[?&]norefl/.test(root.location.search) && this.waterInView()) { if ((this.reflN = (this.reflN || 0) + 1) % 2 || !REFL.on.value || this.reflFor !== 'pv') { this.reflect(); this.reflFor = 'pv'; } } else REFL.on.value = 0;
+      if (REFL_ON && this.waterInView()) { if ((this.reflN = (this.reflN || 0) + 1) % 2 || !REFL.on.value || this.reflFor !== 'pv') { this.reflect(); this.reflFor = 'pv'; } } else REFL.on.value = 0;
       this.r.render(this.domeScene, this.cam);
       if (this.stripOn) this.r.render(this.stripScene, this.skyCam);
       this.giFrame();
@@ -2547,8 +2548,10 @@ vec4 giTap( vec3 p ) {
   const HEAD = { p: { value: new T.Vector4() }, d: { value: new T.Vector3() } };
   const TOD = (/[?&]tod=(dusk|night)/.exec(root.location ? root.location.search : '') || [])[1] || '';
   const SH_RANGE = { value: 1 };   // the sun's shadow camera, far minus near
-  const CAR_SH_R = 400, CAR_SH_N = 2048;   // each car's own shadow map (carSunsAt): its reach either side of the car, its texels
-  const NEAR_SH_R = 1200, NEAR_SH_N = 4096, NEAR_AHEAD = 800;   // the near map round the camera (a race: the scenery's shadows close by crisp), centred this far ahead
+  // the water's reflection: the whole scene drawn again; off unless ?refl or ?full (issue 37)
+  const REFL_ON = /[?&](refl|full)\b/.test(root.location.search);
+  const CAR_SH_R = 400, CAR_SH_N = 1024;   // each car's own shadow map (carSunsAt): its reach either side of the car, its texels
+  const NEAR_SH_R = 1200, NEAR_SH_N = 2048, NEAR_AHEAD = 800;   // the near map round the camera (a race: the scenery's shadows close by crisp), centred this far ahead
   const SH_FADE = { value: new T.Vector2(1e9, 2e9) };   // (a race: the shadows fade out between these distances from the camera, well inside the shadow map's reach)
   const NROOF = 16, ROOF = { a: { value: Array.from({ length: NROOF }, () => new T.Vector4(1, 1, 0, 0)) }, lo: { value: new Array(NROOF).fill(0) } };   // the nearest tunnel roofs' extents (world x0, z0, x1, z1) and heights: under them, shade
   const CAR_P = { value: [new T.Vector4(), new T.Vector4()] };   // the cars' places (w 1: there): their sun shadows darker close to them   // lines' least width on screen, in the original's pixels (the track preview, seen from far: thinner)
