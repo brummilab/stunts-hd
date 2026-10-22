@@ -318,22 +318,22 @@ function drawHud(t, race, shown) {
   if (live) hud.menuAt = 0;
   const on = live && !mem[D + Sy.dashb_toggle] && !mem[D + Sy.game_replay_mode];
   if (!live) {
-    // outside a race: only the look's key, and only while the HD picture is on screen (car select, the track menu's
-    // overview, a paused race), where pressing it changes what is seen; not on the flat menus
-    if (!hud.def || !view || !shown || document.getElementById('setup')) { hc.hidden = true; hud.drawn = null; hud.menuAt = 0; return; }
+    // outside a race: the look's key only while the HD picture is on screen (car select, the track menu's overview, a
+    // paused race), where pressing it changes what is seen; the version on every menu, in OG mode too (issue 35)
+    if (!hud.def || !view || document.getElementById('setup') || !shown && view.raceView && t - (view.lastFrame || 0) < 300) { hc.hidden = true; hud.drawn = null; hud.menuAt = 0; return; }   // (nor over an OG race)
     // (only once that screen has stood a moment: leaving a race for the main menu, the last 3D picture stays on screen a
     // few frames, and the settings line flashed up over it)
     if (!hud.menuAt) hud.menuAt = t;
     if (t - hud.menuAt < 60) { hc.hidden = true; hud.drawn = null; return; }   // (about a game frame: long enough for the last race picture to go)
-    const mk = 'menu|' + OG_MODE + '|' + view.giOn + '|' + hc.width + '|' + hc.height;
+    const mk = 'menu|' + OG_MODE + '|' + view.giOn + '|' + !!shown + '|' + hc.width + '|' + hc.height;
     hc.hidden = false; if (hud.drawn === mk) return; hud.drawn = mk;
     const c = hc.getContext('2d'), H = hc.height, small = Math.max(1, Math.max(1, H / 340) * 0.75), m = Math.round(H * 0.04);
     c.clearRect(0, 0, hc.width, H);
-    const w = hudText(c, hud.def, '(H) HD MODE', m, m + 8 * small, small, 'left', 0.75);
-    hudText(c, hud.def, OG_MODE ? 'OFF' : 'ON', m + w + 12 * small, m + 8 * small, small, 'left', 1, 0, '255,247,33');
+    if (shown) { const w = hudText(c, hud.def, '(H) HD MODE', m, m + 8 * small, small, 'left', 0.75);
+      hudText(c, hud.def, OG_MODE ? 'OFF' : 'ON', m + w + 12 * small, m + 8 * small, small, 'left', 1, 0, '255,247,33'); }
     // (the version, bottom left: the newest in the changelog, and the site's build)
     if (window.StuntsSetup && StuntsSetup.version) hudText(c, hud.def, 'V' + StuntsSetup.version + (/^[0-9a-f]+$/.test(self.stuntsBuild) ? ' ' + self.stuntsBuild.slice(0, 6).toUpperCase() : ''), m, H - m, small, 'left', 0.5);
-    if (LIGHT && !OG_MODE && view.giAvail !== false) { const w2 = hudText(c, hud.def, '(L) LIGHTING', m, m + 19 * small, small, 'left', 0.75); hudText(c, hud.def, view.giOn ? 'REALISTIC' : 'CLASSIC', m + w2 + 12 * small, m + 19 * small, small, 'left', 1, 0, '255,247,33'); }
+    if (shown && LIGHT && !OG_MODE && view.giAvail !== false) { const w2 = hudText(c, hud.def, '(L) LIGHTING', m, m + 19 * small, small, 'left', 0.75); hudText(c, hud.def, view.giOn ? 'REALISTIC' : 'CLASSIC', m + w2 + 12 * small, m + 19 * small, small, 'left', 1, 0, '255,247,33'); }
     return;
   }
   const rw = a => mem[a] | mem[a + 1] << 8;
