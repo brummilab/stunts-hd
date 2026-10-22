@@ -274,7 +274,10 @@
   const STEER_FULL = 200;   // the steering angle the stick's end stands for (it builds ~140 a second held)
   function pollPad(now) {
     const gp = navigator.getGamepads ? [...navigator.getGamepads()].find(g => g && g.connected) : null;
-    if (!gp) { if (pad.down.size) pad.release(); return; }
+    if (!gp) { if (pad.down.size) pad.release(); k[1032] = 0; return; }
+    // (also the game's own joystick, on its game port: for its Joystick option and calibration, k[1032..1035])
+    k[1033] = Math.round((gp.axes[0] || 0) * 1000); k[1034] = Math.round((gp.axes[1] || 0) * 1000);
+    k[1035] = (gp.buttons[0] && gp.buttons[0].pressed ? 1 : 0) | (gp.buttons[1] && gp.buttons[1].pressed ? 2 : 0); k[1032] = 1;
     const b = i => !!(gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.3));
     const x = gp.axes[0] || 0, y = gp.axes[1] || 0;
     const mode = racing() ? 'race' : 'menu';
@@ -286,15 +289,17 @@
       const steer = b(14) ? -1 : b(15) ? 1 : Math.abs(x) < 0.15 ? 0 : x;
       const ang = (r16(PS + 0x20) << 16) >> 16, tgt = steer * STEER_FULL;
       const full = Math.abs(steer) >= 0.92;
-      pad.set('ArrowRight', steer > 0 && (full || ang < tgt - 6));
-      pad.set('ArrowLeft', steer < 0 && (full || ang > tgt + 6));
-      pad.set('ArrowUp', b(7) || b(0)); pad.set('ArrowDown', b(6) || b(1));
+      const own = !!r8(S.byte_3FE00);   // (the game reading the joystick itself: steering and pedals are its, not keys as well)
+      pad.set('ArrowRight', !own && steer > 0 && (full || ang < tgt - 6));
+      pad.set('ArrowLeft', !own && steer < 0 && (full || ang > tgt + 6));
+      pad.set('ArrowUp', !own && (b(7) || b(0))); pad.set('ArrowDown', !own && (b(6) || b(1)));
       pad.set('Space', b(5)); pad.set('Enter', b(4));
       pad.set('KeyC', b(2)); pad.set('KeyD', b(3)); pad.set('Escape', b(9));
       if (b(8)) restart();
     } else {
-      pad.set('ArrowLeft', b(14) || x < -0.6); pad.set('ArrowRight', b(15) || x > 0.6);
-      pad.set('ArrowUp', b(12) || y < -0.6); pad.set('ArrowDown', b(13) || y > 0.6);
+      const own = !!r8(S.byte_3FE00);   // (the game reading the joystick itself, in menus too: the stick is its, the d-pad still keys)
+      pad.set('ArrowLeft', b(14) || !own && x < -0.6); pad.set('ArrowRight', b(15) || !own && x > 0.6);
+      pad.set('ArrowUp', b(12) || !own && y < -0.6); pad.set('ArrowDown', b(13) || !own && y > 0.6);
       pad.set('Enter', b(0) || b(9)); pad.set('Escape', b(1));
     }
   }

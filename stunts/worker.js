@@ -26,7 +26,7 @@ onmessage = async e => {
   postMessage({ type: 'files', names: Object.keys(files) });   // (the game's own files: the page's import/export knows which names are taken)   // (the page's race display draws with the game's fonts)
   const k = new Int32Array(keys);
   const pc = new StuntsPC(StuntsCode, {
-    files, saved, memory, palette, mouse,
+    files, saved, memory, palette, mouse, joy: new Int32Array(keys, 4 * 1032, 4),   // (the page's gamepad as the game's joystick: k[1032..1035])
     log: s => { if (/unhandled/.test(s) || /not found/.test(s) && /^(localhost|127\.)/.test(location.hostname)) console.log('[dos]', s); },   // (the files the game looks for and goes on without: only while developing)
     onExit: code => { postMessage({ type: 'exit', code }); throw new HostExit(code); },
     onSave: (name, data) => postMessage({ type: 'save', name, data: data.slice() }),

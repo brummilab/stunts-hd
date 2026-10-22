@@ -30,6 +30,9 @@
       // a mouse (int 33h) when the page shares one: Int32 [0] present, [1] x and [2] y as 0..65535 across the
       // screen, [3] buttons (1 left, 2 right)
       this.mouseIn = opts.mouse ? new Int32Array(opts.mouse) : null;
+      // a joystick on the game port (0x201) when the page shares one: Int32 [0] present, [1] x and [2] y as -1000..1000,
+      // [3] buttons (1 and 2). The game times each axis by counting reads after writing the port, as on a real PC.
+      this.joyIn = opts.joy || null; this.joyN = 0;
       this.mouseR = { x0: 0, x1: 639, y0: 0, y1: 199, ox: 0, oy: 0 };
       if (opts.memory) this.mem = new Uint8Array(opts.memory);
       this.pal = opts.palette ? new Uint8Array(opts.palette) : new Uint8Array(768);
@@ -178,7 +181,11 @@
         case 0x21: return this.picMask || 0;
         case 0x3DA: { const t = this.now() % 14.3; return t < 1.2 ? 0x09 : 0x00; }   // 70 Hz vertical retrace
         case 0x3C9: { const v = this.pal[this.palRead * 3 + this.palCnt]; if (++this.palCnt === 3) { this.palCnt = 0; this.palRead = (this.palRead + 1) & 255; } return v; }
-        case 0x201: return 0xFF;   // no joystick
+        case 0x201: {
+          const J = this.joyIn; if (!J || !J[0]) return 0xFF;   // (no joystick)
+          const n = this.joyN++, t = v => 40 + (Math.max(-1000, Math.min(1000, v)) + 1000) * 0.4;   // (reads until the axis bit drops: 40..840, centre 440)
+          return 0xC0 | (J[3] & 2 ? 0 : 0x20) | (J[3] & 1 ? 0 : 0x10) | (n < t(J[2]) ? 2 : 0) | (n < t(J[1]) ? 1 : 0);
+        }
       }
       return 0xFF;
     }
@@ -188,6 +195,7 @@
         case 0x43: this.pitLatch = null; return;
         case 0x61: this.port61 = v; return;
         case 0x21: this.picMask = v; return;
+        case 0x201: this.joyN = 0; return;   // (the axes' timers started)
         case 0x3C8: this.palIdx = v; this.palCnt = 0; return;
         case 0x3C7: this.palRead = v; this.palCnt = 0; return;
         case 0x3C9: this.pal[this.palIdx * 3 + this.palCnt] = v & 63; if (++this.palCnt === 3) { this.palCnt = 0; this.palIdx = (this.palIdx + 1) & 255; } return;
