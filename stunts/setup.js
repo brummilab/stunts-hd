@@ -402,12 +402,15 @@
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.log}Changelog</button>
         <div class="pop">
           <h2>Changelog</h2>
-          <p><b>v1.5.19</b> &middot; Oct 22 2026</p>
+          <p><b>v1.5.20</b> &middot; Oct 22 2026</p>
           <ul>
+            <li>Runs far lighter: smooth on laptops on battery and older graphics chips. The 3D view draws at about a million pixels (scaled up), shadows from smaller maps, a 120 Hz screen draws every other picture; ambient occlusion and water reflections are off (?full brings everything back).</li>
+          </ul>
+          <details><summary>v1.5.19 &middot; Oct 22 2026</summary><ul>
             <li>Phones: the sound now starts on Android.</li>
             <li>The opponent's words on the results screen are black again, even when you race straight away with the opponent remembered from your last visit (Skid's were teal).</li>
             <li>The version shows on every menu, in OG mode too.</li>
-          </ul>
+          </ul></details>
           <details><summary>v1.5.18 &middot; Oct 22 2026</summary><ul>
             <li>Smoother with the TV camera: no more stutter while it pans to follow the car.</li>
             <li>Phones that report a fine pointer without a mouse (such as the Galaxy S26) now get the lighter phone settings (thanks, brummilab!).</li>
