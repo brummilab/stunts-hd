@@ -402,13 +402,18 @@
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.log}Changelog</button>
         <div class="pop">
           <h2>Changelog</h2>
-          <p><b>v1.5.18</b> &middot; Oct 22 2026</p>
+          <p><b>v1.5.19</b> &middot; Oct 22 2026</p>
           <ul>
+            <li>Phones: the sound now starts on Android.</li>
+            <li>The opponent's words on the results screen are black again, even when you race straight away with the opponent remembered from your last visit (Skid's were teal).</li>
+            <li>The version shows on every menu, in OG mode too.</li>
+          </ul>
+          <details><summary>v1.5.18 &middot; Oct 22 2026</summary><ul>
             <li>Smoother with the TV camera: no more stutter while it pans to follow the car.</li>
             <li>Phones that report a fine pointer without a mouse (such as the Galaxy S26) now get the lighter phone settings (thanks, brummilab!).</li>
             <li>Gamepads: the d-pad works in DirectInput mode too (8BitDo's D mode), so pads without a stick can steer.</li>
             <li>OG mode remembers your car, opponent and track at the start of a race again.</li>
-          </ul>
+          </ul></details>
           <details><summary>v1.5.17 &middot; Oct 22 2026</summary><ul>
             <li>Gamepads work as the game's own joystick: pick Joystick in Options, then swing the stick around to calibrate.</li>
             <li>OG mode starts a race as the original did, with the car driving out of the truck.</li>
