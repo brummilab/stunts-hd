@@ -270,13 +270,28 @@
     set(code, on) { if (!!this.down.get(code) === on) return; this.down.set(code, on); send(code, on); if (on) startAudio(); },
     release() { for (const [c, on] of this.down) if (on) send(c, false); this.down.clear(); },
   };
-  let padMode = null;
+  let padMode = null, hatAxis = -1;
+  // the d-pad: its buttons (the standard mapping), or one hat axis as a pad in DirectInput mode reports it (8BitDo's D
+  // mode): -1 up, then 2/7 a step clockwise round to 1 up-left; at rest out past 1 (that is how its axis is found)
+  function dpad(gp) {
+    const bt = i => !!(gp.buttons[i] && gp.buttons[i].pressed), d = { u: bt(12), d: bt(13), l: bt(14), r: bt(15) };
+    if (hatAxis < 0) hatAxis = gp.axes.findIndex((v, i) => i >= 2 && Math.abs(v) > 1.05);
+    const v = hatAxis >= 0 ? gp.axes[hatAxis] : 9;
+    if (Math.abs(v) <= 1.05) {
+      const dir = ((Math.round((v + 1) * 3.5) % 8) + 8) % 8;   // (0 up, 1 up-right ... 6 left, 7 up-left)
+      d.u = d.u || dir === 7 || dir <= 1; d.r = d.r || dir >= 1 && dir <= 3; d.d = d.d || dir >= 3 && dir <= 5; d.l = d.l || dir >= 5 && dir <= 7;
+    }
+    return d;
+  }
   const STEER_FULL = 200;   // the steering angle the stick's end stands for (it builds ~140 a second held)
   function pollPad(now) {
     const gp = navigator.getGamepads ? [...navigator.getGamepads()].find(g => g && g.connected) : null;
-    if (!gp) { if (pad.down.size) pad.release(); k[1032] = 0; return; }
-    // (also the game's own joystick, on its game port: for its Joystick option and calibration, k[1032..1035])
-    k[1033] = Math.round((gp.axes[0] || 0) * 1000); k[1034] = Math.round((gp.axes[1] || 0) * 1000);
+    if (!gp) { if (pad.down.size) pad.release(); k[1032] = 0; hatAxis = -1; return; }
+    const dp = dpad(gp);
+    // (also the game's own joystick, on its game port: for its Joystick option and calibration, k[1032..1035]; a pad
+    // without a stick, its d-pad)
+    const jx = dp.l ? -1 : dp.r ? 1 : gp.axes[0] || 0, jy = dp.u ? -1 : dp.d ? 1 : gp.axes[1] || 0;
+    k[1033] = Math.round(jx * 1000); k[1034] = Math.round(jy * 1000);
     k[1035] = (gp.buttons[0] && gp.buttons[0].pressed ? 1 : 0) | (gp.buttons[1] && gp.buttons[1].pressed ? 2 : 0); k[1032] = 1;
     const b = i => !!(gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.3));
     const x = gp.axes[0] || 0, y = gp.axes[1] || 0;
@@ -286,7 +301,7 @@
       // steering by how far the stick is pushed: the game turns the wheel while a key is held and centres it
       // when let go, so the key is held until the car's steering angle (playerstate.car_steeringAngle) reaches
       // the stick's share of full lock, then let go, as a player feathers it
-      const steer = b(14) ? -1 : b(15) ? 1 : Math.abs(x) < 0.15 ? 0 : x;
+      const steer = dp.l ? -1 : dp.r ? 1 : Math.abs(x) < 0.15 ? 0 : x;
       const ang = (r16(PS + 0x20) << 16) >> 16, tgt = steer * STEER_FULL;
       const full = Math.abs(steer) >= 0.92;
       const own = !!r8(S.byte_3FE00);   // (the game reading the joystick itself: steering and pedals are its, not keys as well)
@@ -297,9 +312,9 @@
       pad.set('KeyC', b(2)); pad.set('KeyD', b(3)); pad.set('Escape', b(9));
       if (b(8)) restart();
     } else {
-      const own = !!r8(S.byte_3FE00);   // (the game reading the joystick itself, in menus too: the stick is its, the d-pad still keys)
-      pad.set('ArrowLeft', b(14) || !own && x < -0.6); pad.set('ArrowRight', b(15) || !own && x > 0.6);
-      pad.set('ArrowUp', b(12) || !own && y < -0.6); pad.set('ArrowDown', b(13) || !own && y > 0.6);
+      const own = !!r8(S.byte_3FE00);   // (the game reading the joystick itself, in menus too: stick and d-pad are its, no keys as well)
+      pad.set('ArrowLeft', !own && (dp.l || x < -0.6)); pad.set('ArrowRight', !own && (dp.r || x > 0.6));
+      pad.set('ArrowUp', !own && (dp.u || y < -0.6)); pad.set('ArrowDown', !own && (dp.d || y > 0.6));
       pad.set('Enter', b(0) || b(9)); pad.set('Escape', b(1));
     }
   }
