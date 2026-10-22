@@ -273,7 +273,7 @@ onmessage = async e => {
     const inIntro = pc.rb(D, SY.game_replay_mode) === 1 && pc.rb(D, SY.byte_4393C) !== 0, gf = pc.rw(D, SY.state + 320);
     if (!inIntro) intro = null;
     else if (!intro) intro = { gf, sent: false };
-    else if (!intro.sent && ((gf - intro.gf) & 0xFFFF) >= 2 && !(og && Atomics.load(new Int32Array(og), 0) === 1)) { intro.sent = true; tellPrefs(); pc.keyEvent(0x39, 1, 0x20); pc.keyEvent(0x39, 0, 0); }
+    else if (!intro.sent && ((gf - intro.gf) & 0xFFFF) >= 2) { intro.sent = true; tellPrefs(); if (!(og && Atomics.load(new Int32Array(og), 0) === 1)) { pc.keyEvent(0x39, 1, 0x20); pc.keyEvent(0x39, 0, 0); } }   // (OG mode: the drive out of the truck plays, as the original's)
     inUF++; try { return uf(r, m, P, e); } finally { inUF--; }
   };
   postMessage({ type: 'running' });
