@@ -267,6 +267,15 @@ onmessage = async e => {
     m.ret(r, 4, 0);   // (this frame's update not made: the race carries on from the frame rewound to)
   }; }
   { const rg = StuntsCode.P.run_game; if (rg) StuntsCode.P.run_game = function (r, m, P, e) { inRun++; try { return rg(r, m, P, e); } finally { inRun--; } }; }   // (inside the race routine: the only place a picture may be drawn again)
+  // The results screen sets its black before it switches to the small font, so the opponent's words take the small font's
+  // last colour: in the original, black from the opponent menu, which every race against an opponent went through first. With
+  // the opponent remembered from the last visit that menu may never open, and the font's own colour (3, the photo's
+  // background) showed: Skid's words in teal (issue 29). The small font set black first, as the opponent menu leaves it.
+  { const eh = StuntsCode.P.end_hiscore; if (eh && SY.fontnptr != null) StuntsCode.P.end_hiscore = function (r, m, P, e) {
+    const off = pc.rw(D, SY.fontnptr), seg = pc.rw(D, SY.fontnptr + 2);
+    if (seg) { pc.ww(seg, off, 0); pc.ww(seg, (off + 2) & 0xFFFF, 0); }
+    return eh(r, m, P, e);
+  }; }
   StuntsCode.P.update_frame = function (r, m, P, e) {
     Atomics.add(k, 1030, 1);
     lastUF = [pc.rw(r.ss, (r.sp + 4) & 0xFFFF), pc.rw(r.ss, (r.sp + 6) & 0xFFFF)];   // (its two arguments, for a picture drawn again: see below)
