@@ -3206,7 +3206,7 @@ float vnoise(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 *
             }
           });
         }
-        this.upload(v);
+        this.upload(v, split ? null : view.seq);
         return;
       }
       for (let i = 0; i + 2 < v; i += 3) {
@@ -3216,12 +3216,15 @@ float vnoise(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 *
         nx /= l; ny /= l; nz /= l;
         for (let k = 0; k < 9; k += 3) { Nn[a + k] = nx; Nn[a + k + 1] = ny; Nn[a + k + 2] = nz; }
       }
-      this.upload(v);
+      this.upload(v, split ? null : view.seq);
     }
     // only the v vertices in use go to the GPU (the buffers hold 200,000: sent whole, some 17 MB a buffer, every frame)
-    upload(v) {
+    // (colour, rank and pattern change only with the game's picture: sent again only for a new one or another count; the
+    // see-through faces, sorted by the camera, always; issue 37)
+    upload(v, seq) {
       const g = this.geo; g.setDrawRange(0, v);
-      for (const k of ['position', 'color', 'normal', 'rank', 'pat', 'spin', 'lofs', 'f0', 'fn']) {
+      const same = seq != null && seq === this.upSeq && v === this.upV; this.upSeq = seq; this.upV = v;
+      for (const k of same ? ['position', 'normal', 'spin', 'lofs', 'f0', 'fn'] : ['position', 'color', 'normal', 'rank', 'pat', 'spin', 'lofs', 'f0', 'fn']) {
         const a = g.attributes[k]; a.updateRange.offset = 0; a.updateRange.count = Math.max(1, v) * a.itemSize; a.needsUpdate = true;
       }
     }
