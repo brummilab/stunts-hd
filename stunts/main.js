@@ -211,6 +211,8 @@ async function startAudio() {
   sync(); setInterval(sync, 1000);
 }
 addEventListener('pointerdown', startAudio);
+// (a touch: the browser allows sound from the finger's lifting, not its press; pressed only, the sound stayed off on Android, issue 36)
+addEventListener('pointerup', startAudio, true); addEventListener('touchend', startAudio, true);   // (capturing: the touch buttons keep their pointerup to themselves)
 startAudio();   // (at once, if the browser allows sound before a key press or click; otherwise the first one starts it)
 
 // PC scan codes (set 1); 0x100 marks keys sent with the E0 prefix
