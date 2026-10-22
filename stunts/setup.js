@@ -404,7 +404,7 @@
           <h2>Changelog</h2>
           <p><b>v1.5.20</b> &middot; Oct 22 2026</p>
           <ul>
-            <li>Runs far lighter: smooth on laptops on battery and older graphics chips. The 3D view draws at about a million pixels (scaled up), shadows from smaller maps, a 120 Hz screen draws every other picture; ambient occlusion and water reflections are off (?full brings everything back).</li>
+            <li>Runs far lighter: smooth on laptops on battery and older graphics chips. The 3D view draws at about a million pixels (scaled up), shadows from smaller maps, a 120 Hz screen draws every other picture, water reflections are drawn smaller and ambient occlusion is off (?full brings everything back).</li>
           </ul>
           <details><summary>v1.5.19 &middot; Oct 22 2026</summary><ul>
             <li>Phones: the sound now starts on Android.</li>

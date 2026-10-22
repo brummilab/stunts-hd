@@ -1498,7 +1498,7 @@ void main() {
     }
 
     reflect() {
-      const r = this.r, sz = r.getDrawingBufferSize(new T.Vector2()), q = this.phone ? 2 : 1, w = Math.max(1, sz.x >> q), h = Math.max(1, sz.y >> q);   // (half the picture's size; a phone's a quarter)
+      const r = this.r, sz = r.getDrawingBufferSize(new T.Vector2()), q = /[?&]full\b/.test(root.location.search) ? 1 : 2, w = Math.max(1, sz.x >> q), h = Math.max(1, sz.y >> q);   // (a quarter of the picture's width and height; ?full: half)
       if (!this.reflRT) this.reflRT = new T.WebGLRenderTarget(w, h, { depthBuffer: true });
       if (this.reflRT.width !== w || this.reflRT.height !== h) this.reflRT.setSize(w, h);
       const wc = this.rw(this.S.skybox_wat_color) & 255, p = this.pal, lv = 0.5;
@@ -2549,8 +2549,9 @@ vec4 giTap( vec3 p ) {
   const HEAD = { p: { value: new T.Vector4() }, d: { value: new T.Vector3() } };
   const TOD = (/[?&]tod=(dusk|night)/.exec(root.location ? root.location.search : '') || [])[1] || '';
   const SH_RANGE = { value: 1 };   // the sun's shadow camera, far minus near
-  // the water's reflection: the whole scene drawn again; off unless ?refl or ?full (issue 37)
-  const REFL_ON = /[?&](refl|full)\b/.test(root.location.search);
+  // the water's reflection (and its ripples): the whole scene drawn again, at a quarter of the picture's width and height and
+  // every other picture, soft under its ripples anyway; ?norefl: off (issue 37)
+  const REFL_ON = !/[?&]norefl\b/.test(root.location.search);
   const CAR_SH_R = 400, CAR_SH_N = 1024;   // each car's own shadow map (carSunsAt): its reach either side of the car, its texels
   const NEAR_SH_R = 1200, NEAR_SH_N = 2048, NEAR_AHEAD = 800;   // the near map round the camera (a race: the scenery's shadows close by crisp), centred this far ahead
   const SH_FADE = { value: new T.Vector2(1e9, 2e9) };   // (a race: the shadows fade out between these distances from the camera, well inside the shadow map's reach)
