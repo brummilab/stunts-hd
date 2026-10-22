@@ -1338,16 +1338,10 @@ void main() {
       SH_RANGE.value = sc.far - sc.near;
       GI_U.giSoft.value = low ? 1 : 0; GI_U.giTexW.value = 2 * ext / this.sun.shadow.mapSize.x;
       this.sun.target.updateMatrixWorld(); this.sun.updateMatrixWorld();
-      // (in a race: the far map drawn again when it has moved, or every 50 ms for what moves in it (a windmill's
-      // sails); the cars and the shadows close by have maps of their own, drawn every frame. Its matrix is set as it is drawn,
-      // so a map kept from an earlier frame still falls where it did)
-      const sh = this.sun.shadow; sh.autoUpdate = !race;   // (it was every frame off a phone: an 8192 map, a large share of the graphics chip's work)
-      this.slot = true;   // (one timed redraw a frame, of the far map, the near map or the car's reflections: drawn on the same frame they made it stutter; one that has moved is drawn at once)
-      // (moved a little, as a TV camera's pan moves the focus 4500 ahead of it every frame: drawn again in its turn, as the
-      // timed redraw; moved far (a camera change, a jump) or its reach changed: at once. Drawn on every move it stuttered, issue 27)
-      if (!sh.autoUpdate) { const k = focus.x + ',' + focus.y + ',' + focus.z + ',' + ext; const tn = performance.now();
-      const far = !this.sunFocus || this.sunExt !== ext || this.sunFocus.distanceTo(focus) > ext * 0.2;
-      if (k !== this.sunKey && far || tn - (this.sunAt || 0) > 50 && this.takeSlot()) { sh.needsUpdate = true; this.sunKey = k; this.sunAt = tn; this.sunFocus = focus.clone(); this.sunExt = ext; } }
+      // (drawn every picture, as the near map and the cars' are: drawn only now and then, most pictures were light and the odd one
+      // heavy, and the motion lurched; at 2048 the steady cost is the smoother one, issue 37)
+      const sh = this.sun.shadow; sh.autoUpdate = true;
+      this.slot = true;   // (one timed redraw a frame: the car's reflections, see takeSlot)
       if (this.carSuns && !this.ogHide) { this.carSunsAt(race, cars, ease, sunDir); this.nearSunAt(race, fwd, sunDir); }
       this.explosions(now, race, camWorld);
       this.tyreMarks(race, cars, ease);
@@ -1805,12 +1799,7 @@ void main() {
       if (sc.near !== ss.near || sc.far !== ss.far) { sc.near = ss.near; sc.far = ss.far; sc.updateProjectionMatrix(); }
       l.shadow.bias = this.sun.shadow.bias; l.shadow.normalBias = this.sun.shadow.normalBias;
       l.target.updateMatrixWorld(); l.updateMatrixWorld(); l.userData.parked = false;
-      // (drawn again when it has moved, or every 50 ms for what moves in it: drawn every display frame, twice as often on a
-      // 120 Hz screen, it was a large share of the graphics chip's work; its matrix is set as it is drawn, so a kept map falls where it did)
-      // (moved a little, as with a TV camera's pan: in its turn too; moved far: at once, issue 27)
-      const k = fx + ',' + fy + ',' + fz, tn = performance.now(), at = l.target.position;
-      const far = !this.nearFocus || this.nearFocus.distanceTo(at) > NEAR_SH_R * 0.2;
-      if (k !== this.nearKey && far || tn - (this.nearAt || 0) > 50 && this.takeSlot()) { l.shadow.needsUpdate = true; this.nearKey = k; this.nearAt = tn; this.nearFocus = at.clone(); }
+      l.shadow.needsUpdate = true;   // (every picture: a steady cost, as the sun's map, issue 37)
     }
 
     // Your best run on each track, raced again as a see-through ghost car. While you drive, the car's place is
