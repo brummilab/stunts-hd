@@ -729,7 +729,7 @@
     let drawn = '';
     const place = () => {
       const on = !!(typeof view !== 'undefined' && view && view.previewView && !document.getElementById('setup'));
-      btn.style.display = on ? 'block' : 'none';
+      const d = on ? 'block' : 'none'; if (btn.style.display !== d) btn.style.display = d;
       if (!on) return;
       const r = document.getElementById('screen').getBoundingClientRect(), u = r.height / 200;
       // (the top right corner of the whole view, as the page's "(H) HD MODE" is the top left: its margin, 4% of the height)

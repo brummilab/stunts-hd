@@ -513,10 +513,12 @@ function resTick(t, drew, racing) {
   if (res.k !== k0) { fit(); try { localStorage.setItem('stunts-res', res.k.toFixed(3)); } catch (_) {} }
 }
 function frame(t) {   // t: the display frame's time (steadier than reading the clock mid-work)
-  { const drew = FPS120 || t - (frame.at || 0) >= 10; resTick(t, drew, !!(view && view.raceView && t - (view.lastFrame || 0) < 1500)); }
   // (on a screen faster than 100 Hz, every other picture: a 120 Hz screen drew twice as many for a game that moves 20 times a
   // second, and the graphics chip, shared with the whole computer, could not keep up; ?fps120 to draw them all; issue 37)
-  if (!FPS120 && t - (frame.at || 0) < 10) { requestAnimationFrame(frame); return; }
+  // (by the screen's own interval, measured: a fixed 10 ms let a refresh that came a little early draw twice in a row)
+  const draw = FPS120 || res.disp >= 10 || t - (frame.at || 0) > res.disp * 1.5;
+  resTick(t, draw, !!(view && view.raceView && t - (view.lastFrame || 0) < 1500));
+  if (!draw) { requestAnimationFrame(frame); return; }
   frame.at = t;
   // one snapshot of the screen and the see-through marks for this whole frame: the game runs on meanwhile,
   // and two layers built from different moments leave holes where pixels turned see-through in between
@@ -539,8 +541,8 @@ function frame(t) {   // t: the display frame's time (steadier than reading the 
   if (!sceneI[13]) frame.busy = null; else if (frame.busy == null) frame.busy = t;
   const busy = frame.busy != null && t - frame.busy < 1000;
   const idle = view && !busy && sceneI[1] === view.seq && t - (view.lastFrame || 0) > 300 && !view.previewView;
-  const edge = new Uint8Array(200);   // rows whose both ends are see-through (the 3D view may go past the frame there)
-  const rowKey = new Uint16Array(200);   // see-through pixels per row (a row mostly see-through goes wide too: the crash's cracked glass touches the edges)
+  const edge = frame.edge || (frame.edge = new Uint8Array(200)); edge.fill(0);   // rows whose both ends are see-through (the 3D view may go past the frame there)
+  const rowKey = frame.rowKey || (frame.rowKey = new Uint16Array(200)); rowKey.fill(0);   // see-through pixels per row (a row mostly see-through goes wide too: the crash's cracked glass touches the edges)
   let marked = 0, shown = 0;
   if (view) for (let i = 0; i < 64000; i++) {
     const m_ = mk[i];
@@ -577,7 +579,7 @@ function frame(t) {   // t: the display frame's time (steadier than reading the 
   if (view) { view.ogHide = OG_MODE && !keyed && !!view.raceView; view.ogMask = ogView; }
   try { live = view && view.render(t, keyed); }
   catch (e) { if (!frame.failed) { frame.failed = true; console.error(e); } live = false; }   // the original picture stays
-  glCanvas.hidden = !live; bgCanvas.hidden = !live || !!view.raceView || !!view.previewView;
+  { const gh = !live, bh = !live || !!view.raceView || !!view.previewView; if (glCanvas.hidden !== gh) glCanvas.hidden = gh; if (bgCanvas.hidden !== bh) bgCanvas.hidden = bh; }
   // (OG mode: the HD layers made invisible, not hidden: hiding rebuilds the page's layers, a hitch on switching)
   // (the track menu's overview is a still picture: OG mode shows the original's, kept at bg + 192000; any other
   // still 3D picture made before the switch has no original pixels to show, and stays HD until drawn again)
@@ -640,7 +642,7 @@ function frame(t) {   // t: the display frame's time (steadier than reading the 
       for (let x = 0; x < 6; x++) if (scr[o + x] !== c || scr[o + 314 + x] !== c) return false; return true; };
     let solidAny = false;
     if (!dash && !og && keyed && race && view.raceView) for (let y = 0; y < 200; y++) if (edge[y] !== 2 && solidRow(y)) { solidAny = true; break; }
-    sidesCanvas.hidden = (!dash || DM === 'hood') && !solidAny;
+    { const sh = (!dash || DM === 'hood') && !solidAny; if (sidesCanvas.hidden !== sh) sidesCanvas.hidden = sh; }
     const curve = DM === 'curve';
     if (dash && DM !== 'hood' || solidAny) {
       if (curve) { drawCurve(dashRow, solidUp); } else {
@@ -675,13 +677,15 @@ function frame(t) {   // t: the display frame's time (steadier than reading the 
     // sky layer: the original skybox inside the 3D window, nothing elsewhere
     // (every see-through pixel shows what the original had there before it became see-through)
     const b = sceneI[15] ? sceneI[15] - 1 : sceneI[0];   // (the frame on screen, see hires-capture.js)
-    for (let i = 0; i < 64000; i++) bgPx[i] = scr[i] === StuntsHires.KEY && mk[i] ? rgb[bgU8[b * 64000 + i]] : 0;
-    bgG.putImageData(bgImg, 0, 0);
+    // (each picture handed to the browser only when it changed: the game changes 20 times a second, the page draws 60; issue 37)
+    let ch = false; for (let i = 0; i < 64000; i++) { const v = scr[i] === StuntsHires.KEY && mk[i] ? rgb[bgU8[b * 64000 + i]] : 0; if (bgPx[i] !== v) { bgPx[i] = v; ch = true; } }
+    if (ch) bgG.putImageData(bgImg, 0, 0);
   }
   // the 3D window shows through the pixels the worker made see-through
-  for (let i = 0; i < 64000; i++) { const c = scr[i]; px[i] = hole[i] && live && !og ? 0 : c === StuntsHires.KEY && mk[i] ? (ogStill ? rgb[bgU8[192000 + i]] : live && !og ? 0 : rgb[c]) : rgb[c]; }
+  let pch = false;
+  for (let i = 0; i < 64000; i++) { const c = scr[i], v = hole[i] && live && !og ? 0 : c === StuntsHires.KEY && mk[i] ? (ogStill ? rgb[bgU8[192000 + i]] : live && !og ? 0 : rgb[c]) : rgb[c]; if (px[i] !== v) { px[i] = v; pch = true; } }
   if (live && !og && view.stageShadow && !view.previewView && openStage(view.stageShadow)) bgG.putImageData(bgImg, 0, 0);
-  g.putImageData(img, 0, 0);
+  if (pch) g.putImageData(img, 0, 0);
   // (and only while the 3D view shows through in this very frame, or in OG mode: leaving car select or a race for the
   // high scores, the last 3D picture is kept a few frames more, and the settings line lingered over the next screen)
   { const now3d = live && (keyed || og); drawHud(t, now3d && view.raceView && !NOHUD, now3d); }
