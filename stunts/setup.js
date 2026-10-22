@@ -402,14 +402,22 @@
       <span class="info"><button class="lnk" aria-expanded="false">${SIGN.log}Changelog</button>
         <div class="pop">
           <h2>Changelog</h2>
-          <p><b>v1.5.16</b> &middot; Oct 21 2026</p>
+          <p><b>v1.5.17</b> &middot; Oct 22 2026</p>
           <ul>
+            <li>Gamepads work as the game's own joystick: pick Joystick in Options, then swing the stick around to calibrate.</li>
+            <li>OG mode starts a race as the original did, with the car driving out of the truck.</li>
+            <li>The dashboard turned on in the Replay Menu stays on after Continue Driving, in OG mode too.</li>
+            <li>Touch: Race on the results screen starts the race again instead of the replay; Restart the race? is asked only when picked by touch.</li>
+            <li>Smoother and lighter on fast screens (120 Hz and up), and sharper on large ones.</li>
+            <li>The menus show the version, small, bottom left.</li>
+          </ul>
+          <details><summary>v1.5.16 &middot; Oct 21 2026</summary><ul>
             <li>Phones run smoother, and OG mode's ghost car no longer slows them down.</li>
             <li>Re-Start Driving in the Replay Menu asks first, so a race isn't thrown away by mistake. Touch: a T button for the opponent's view, and restart needs a short hold.</li>
             <li>Phones and tablets: Start goes fullscreen where the browser allows it; on an iPhone, Add to Home Screen opens the game without the address bar.</li>
             <li>The track menu's preview no longer breaks after switching tracks, and more custom tracks can be added.</li>
             <li>?perf shows the performance box, at the top in the middle.</li>
-          </ul>
+          </ul></details>
           <details><summary>v1.5.15 &middot; Oct 18 2026</summary><ul>
             <li>Phones and tablets: touch buttons over the race to steer, drive, change gear, rewind, restart and more, in the game's own button style (thanks, brummilab!).</li>
             <li>Phones: the page no longer zooms by accident, the game runs lighter, and the zip of your game can be picked (thanks, brummilab!).</li>
