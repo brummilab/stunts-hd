@@ -38,6 +38,7 @@
       const r = this.r; this.phone = !!opts.phone || !!opts.lite; this.lite = !!opts.lite;   // (lite: an older graphics chip, as a phone and lighter still, issue 37)
       r.setClearColor(0x000000, 0);
       r.outputEncoding = T.sRGBEncoding;
+      r.clippingPlanes = [CLIP];
       r.shadowMap.enabled = !/[?&]noshadow\b/.test(root.location.search); r.shadowMap.type = T.PCFSoftShadowMap;   // (?noshadow, ?flat: to measure what the picture costs, issue 37)   // (filtered, then re-sharpened in getShadow: straight hard edges, no stair steps, no blur)
       this.W = new Int32Array(opts.world); this.bgU8 = new Uint8Array(opts.bg); this.worldVer = -1;
       this.cache = new Map(); this.geoCache = new Map();
@@ -1505,13 +1506,15 @@ void main() {
       REFL.on.value = 0; REFL.tex.value = null;   // (not bound while it is drawn into)
       const hide = [this.ground, this.stage, this.dynShadow.mesh], vis = hide.map(o => o.visible);
       hide.forEach(o => { o.visible = false; });
-      const prevT = r.getRenderTarget(), cp = r.clippingPlanes, sm = r.shadowMap.autoUpdate;
+      const prevT = r.getRenderTarget(), sm = r.shadowMap.autoUpdate;
       r.setRenderTarget(this.reflRT); r.clear();
       if (this.dome.visible) r.render(this.domeScene, cam);
-      r.clippingPlanes = [new T.Plane(new T.Vector3(0, 1, 0), -lv)];
+      // (the one clipping plane kept on for good, clipping nothing but here: switched on and off, every material took another
+      // shader program twice each time, issue 37)
+      CLIP.constant = -lv;
       r.shadowMap.autoUpdate = false;
       r.render(this.scene, cam);
-      r.clippingPlanes = cp; r.shadowMap.autoUpdate = sm; r.setRenderTarget(prevT);
+      CLIP.constant = 1e9; r.shadowMap.autoUpdate = sm; r.setRenderTarget(prevT);
       hide.forEach((o, i) => { o.visible = vis[i]; });
       REFL.tex.value = this.reflRT.texture; REFL.res.value.copy(sz); REFL.level.value = lv; REFL.on.value = /[?&]reflall/.test(root.location.search) ? 2 : 1;
     }
@@ -2553,7 +2556,9 @@ vec4 giTap( vec3 p ) {
   const CARENV = { tex: { value: null }, on: { value: 0 }, sky: { value: new T.Color(1, 1, 1) }, amt: { value: 0.18 } };   // (only ever darkens: kept light so the paint keeps its colour)
   const REFL = { tex: { value: null }, on: { value: 0 }, waterC: { value: new T.Color() }, res: { value: new T.Vector2(1, 1) }, level: { value: 0 } };   // world direction towards the sun (shadow normal offset)
   const CLOCK_SLEW = 0.05;  // the most the playback clock speeds up or slows down to keep its distance
-  const PLAY_DELAY = 1.15;   // game frame periods the view plays behind the newest frame (smooth motion)
+  const PLAY_DELAY = 1.4;   // game frame periods the view plays behind the newest frame (smooth motion; 1.15 left about 7 ms for a
+  // late frame: one came late, the motion stopped and jumped; issue 37)
+  const CLIP = new T.Plane(new T.Vector3(0, 1, 0), 1e9);   // the reflection's clipping plane, always on (see reflect)
   const FOLLOW_LAG = 0.12;   // s: how far the chase camera trails the car's turns
   const MAX_SWING = 0.12;   // rad: the most it trails (keeps it out of walls and hills in tight turns)
   const CAM_DAMP = 0.09;    // s: damping of the game camera's distance, height and pitch steps
