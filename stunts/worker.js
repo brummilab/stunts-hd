@@ -269,8 +269,8 @@ onmessage = async e => {
   { const rg = StuntsCode.P.run_game; if (rg) StuntsCode.P.run_game = function (r, m, P, e) { inRun++; try { return rg(r, m, P, e); } finally { inRun--; } }; }   // (inside the race routine: the only place a picture may be drawn again)
   // The game waits by asking, over and over, what the timer says (or whether the screen is in its retrace): a real PC had
   // nothing else to do, here it held a whole core at work, menus and pauses too, and a laptop slowed down all over (issue 37).
-  // Asked over 200 times within a millisecond, which no real work does, the worker sleeps 4 ms (the
-  // timer's ticks missed meanwhile are caught up at once). Not on the game's key and mouse checks: slept there, a key went unseen
+  // Asked over 200 times within a millisecond, which no real work does, the worker sleeps until the timer's next tick (4 ms at
+  // most). Not on the game's key and mouse checks: slept there, a key went unseen
   // (Enter on the title). (k[1037]: tenths of ms slept, to measure)
   const sleepW = new Int32Array(keys, 4 * 1036, 2);
   const sleepToTick = cap => { if (pc.inIrq) return; const ms = Math.min(cap, pc.nextTick - performance.now()); if (ms > 0.25) { Atomics.wait(sleepW, 0, 0, ms); Atomics.add(sleepW, 1, Math.round(ms * 10)); } };
@@ -281,7 +281,9 @@ onmessage = async e => {
       if (++n < 200 || pc.inIrq) return;
       const t = performance.now();
       if (t - at < 1) {
-        let ms = 4; if (retrace) { const ph = pc.now() % 14.3; ms = Math.min(4, (ph < 1.2 ? 1.2 : 14.3) - ph + 0.05); }
+        // (never past the timer's next tick: slept past, its ticks came late and some were dropped, and the music and loading slowed)
+        let ms = pc.nextTick ? Math.min(4, pc.nextTick - pc.now()) : 0;
+        if (retrace) { const ph = pc.now() % 14.3; ms = Math.min(ms, (ph < 1.2 ? 1.2 : 14.3) - ph + 0.05); }
         if (ms > 0.25) { Atomics.wait(sleepW, 0, 0, ms); Atomics.add(sleepW, 1, Math.round(ms * 10)); }
       }
       at = performance.now(); n = 0;
