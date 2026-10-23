@@ -3101,7 +3101,7 @@ float vnoise(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 *
   if (underRoof()) gl_FragColor.rgb = diffuseColor.rgb * 0.55;
 #include <tonemapping_fragment>`)
         .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.a *= cov < 1.0 ? min(1.0, cov * 1.1) : 1.0;')   // (as see-through as the share of dots, a little more, at every distance: it was solid up close); solid close by: the deck you drive on is not a window)
-        .replace('#include <logdepthbuf_fragment>', `#include <logdepthbuf_fragment>\n#if defined( USE_LOGDEPTHBUF ) && defined( USE_LOGDEPTHBUF_EXT )\n{ float d0 = gl_FragDepthEXT, rk = floor((vRank + 0.5) / ${RANKS}.0), ti = vRank - rk * ${RANKS}.0; gl_FragDepthEXT = vSpin > 0.5 ? d0 : d0 - rk * (0.6 * fwidth(d0) + 1e-5) - ti * ${TIE_D}; }\n#endif`);   // (decals over their base by the surface's own depth slope: nothing farther off shows through what is in front)
+        .replace('#include <logdepthbuf_fragment>', `#include <logdepthbuf_fragment>\n#if defined( USE_LOGDEPTHBUF ) && defined( USE_LOGDEPTHBUF_EXT )\n{ float d0 = gl_FragDepthEXT, rk = floor((vRank + 0.5) / ${RANKS}.0), ti = vRank - rk * ${RANKS}.0; gl_FragDepthEXT = vSpin > 0.5 ? d0 : d0 - rk * (0.6 * min(fwidth(d0), 1e-4) + 1e-5) - ti * ${TIE_D}; }\n#endif`);   // (decals over their base by the surface's own depth slope: nothing farther off shows through what is in front)
     };
     return m;
   }
