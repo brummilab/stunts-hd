@@ -50,7 +50,7 @@
       const sun = this.sun = new T.DirectionalLight(0xfff2dc, 0.68);   // level ground: about its original colour; walls darker
       sun.castShadow = true; sun.shadow.mapSize.setScalar(2048);   // (was 8192, a phone's 4096: as large again as the picture several times over, drawn often; the near map keeps close shadows crisp, issue 37)   // (texels of under half a unit round the camera: crisp edges; a phone's half that, the near map keeps close ones crisp)
       sun.shadow.camera.layers.enable(3);   // (the track's shadows cast by its pieces' low-detail shapes, on layer 3 only: see buildWorld)
-      sun.shadow.bias = -0.00012; sun.shadow.normalBias = +((root.location && /[?&]nb=([\d.]+)/.exec(root.location.search)) || [0, 1.2])[1];   // (small: shadows touch what casts them)
+      sun.shadow.bias = -0.00012; sun.shadow.normalBias = NB;   // (small: shadows touch what casts them)
       const sc = sun.shadow.camera; sc.left = -2600; sc.right = 2600; sc.top = 2600; sc.bottom = -2600; sc.near = 10; sc.far = 16000;
       this.scene.add(sun, sun.target);
       // (no tone mapping: the original palette colours stay as they are)
@@ -1354,6 +1354,9 @@ void main() {
       // sides; far enough off that a shadow coming into reach doesn't catch the eye)
       if (race) SH_FADE.value.set(5000, 7000); else SH_FADE.value.set(1e9, 2e9);
       this.sun.shadow.bias = -0.00012 * 4000 / ext;   // (the same offset on the ground whatever the map's reach)
+      // (along the surface's normal, 0.7 of the map's texel: a smaller map's texels are larger, and with the offset made for
+      // an 8192 map a wall shadowed itself in streaks; issue 37)
+      this.sun.shadow.normalBias = Math.max(NB, 0.7 * 2 * ext / this.sun.shadow.mapSize.x);
       // keep the shadow map's texels fixed on the ground while the camera moves (no shimmering edges)
       // (the shadow camera's own axes: DirectionalLightShadow looks at the target with up = sun.up, and Matrix4.lookAt
       // takes x = up × z, y = z × x, z = towards the light)
@@ -1801,7 +1804,7 @@ void main() {
         const l = this.carSuns[q++], sc = l.shadow.camera;
         l.target.position.copy(ax).multiplyScalar(fx).addScaledVector(ay, fy).addScaledVector(sunDir, fz); l.position.copy(l.target.position).addScaledVector(sunDir, 2 * CAR_SH_R);
         if (sc.far - sc.near !== SH_RANGE.value) { sc.near = CAR_SH_R; sc.far = sc.near + SH_RANGE.value; sc.updateProjectionMatrix(); }
-        l.shadow.bias = this.sun.shadow.bias; l.shadow.normalBias = this.sun.shadow.normalBias;
+        l.shadow.bias = this.sun.shadow.bias; l.shadow.normalBias = NB;
         l.target.updateMatrixWorld(); l.updateMatrixWorld(); l.shadow.needsUpdate = true; l.userData.parked = false;
       }
       // (a map not in use: out of the way, far below everything, drawn once more there, empty: the shaders keep a map's last
@@ -1828,7 +1831,7 @@ void main() {
       const fx = Math.round(c.dot(ax) / tx) * tx, fy = Math.round(c.dot(ay) / tx) * tx, fz = c.dot(sunDir);
       l.target.position.copy(ax).multiplyScalar(fx).addScaledVector(ay, fy).addScaledVector(sunDir, fz); l.position.copy(l.target.position).addScaledVector(sunDir, back);
       if (sc.near !== ss.near || sc.far !== ss.far) { sc.near = ss.near; sc.far = ss.far; sc.updateProjectionMatrix(); }
-      l.shadow.bias = this.sun.shadow.bias; l.shadow.normalBias = this.sun.shadow.normalBias;
+      l.shadow.bias = this.sun.shadow.bias; l.shadow.normalBias = NB;
       l.target.updateMatrixWorld(); l.updateMatrixWorld(); l.userData.parked = false;
       l.shadow.needsUpdate = true;   // (every picture: a steady cost, as the sun's map, issue 37)
     }
@@ -2572,6 +2575,7 @@ vec4 giTap( vec3 p ) {
   // the water's reflection (and its ripples): the whole scene drawn again, at half the picture's width and height, every other
   // picture; ?norefl: off (issue 37)
   const REFL_ON = !/[?&]norefl\b/.test(root.location.search);
+  const NB = +((root.location && /[?&]nb=([\d.]+)/.exec(root.location.search)) || [0, 1.2])[1];   // shadow maps' offset along the normal (?nb=)
   const CAR_SH_R = 400, CAR_SH_N = 2048;   // each car's own shadow map (carSunsAt): its reach either side of the car, its texels
   const NEAR_SH_R = 1200, NEAR_SH_N = 4096, NEAR_AHEAD = 800;   // (4096 again: the track in blocks, it draws only the few round the camera; issue 37)   // the near map round the camera (a race: the scenery's shadows close by crisp), centred this far ahead
   const SH_FADE = { value: new T.Vector2(1e9, 2e9) };   // (a race: the shadows fade out between these distances from the camera, well inside the shadow map's reach)
@@ -3219,7 +3223,7 @@ float vnoise(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 *
             }
           });
         }
-        this.upload(v, split ? null : view.seq);
+        this.upload(v, split ? null : view.seq + ':' + objs.map(o => o.ptr + '/' + o.paint).join(','));
         return;
       }
       for (let i = 0; i + 2 < v; i += 3) {
@@ -3229,10 +3233,11 @@ float vnoise(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 *
         nx /= l; ny /= l; nz /= l;
         for (let k = 0; k < 9; k += 3) { Nn[a + k] = nx; Nn[a + k + 1] = ny; Nn[a + k + 2] = nz; }
       }
-      this.upload(v, split ? null : view.seq);
+      this.upload(v, split ? null : view.seq + ':' + objs.map(o => o.ptr + '/' + o.paint).join(','));
     }
     // only the v vertices in use go to the GPU (the buffers hold 200,000: sent whole, some 17 MB a buffer, every frame)
-    // (colour, rank and pattern change only with the game's picture: sent again only for a new one or another count; the
+    // (colour, rank and pattern change only with the game's picture and its objects' order: sent again only for a new one, another
+    // order or another count (the same picture's cars in another order, and the opponent's colour flashed on yours); the
     // see-through faces, sorted by the camera, always; issue 37)
     upload(v, seq) {
       const g = this.geo; g.setDrawRange(0, v);
