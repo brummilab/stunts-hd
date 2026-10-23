@@ -348,7 +348,7 @@ void main() {
         im.instanceMatrix.needsUpdate = true;
         this.statics.add(im);
       }
-      this.hidden = []; this.giDirty = true; this.warmWorld = true;
+      this.hidden = []; this.giDirty = true; this.warmWorld = true; this.secN = -1;   // (viewSectors: all worked out again)
     }
 
     // Baked light (L), at the first frame it is wanted after a track is built: the track lit by the whole sky, seen from
@@ -443,11 +443,15 @@ void main() {
     // static instance here: its sector + 1 (0: round the camera, the facing test for all).
     viewSectors() {
       // (the camera's matrices are set by hand each frame: read, never recomputed from its position)
-      const cam = this.cam, V = new T.Vector3(), VM = cam.matrixWorldInverse, e = cam.matrixWorld.elements;
+      const cam = this.cam, V = this.secV || (this.secV = new T.Vector3()), VM = cam.matrixWorldInverse, e = cam.matrixWorld.elements;
+      // (only when the camera moved, and a block's values sent only when one changed: about 150 uploads a frame, issue 37)
+      const was = this.secCam || (this.secCam = new Float64Array(16)); let moved = this.secN !== this.statics.children.length;
+      for (let i = 0; i < 16; i++) if (was[i] !== e[i]) { moved = true; was[i] = e[i]; }
+      if (!moved) return; this.secN = this.statics.children.length;
       const F = new T.Vector3(-e[8], -e[9], -e[10]).normalize(), cp = this.camPos;
       for (const im of this.statics.children) {
         const gr = im.userData; if (!gr.isec || NOSEC) continue;
-        const a = gr.isec.array;
+        const a = gr.isec.array; let ch = false;
         gr.inst.forEach(([x, y, z, r], j) => {
           V.set(x, y, z).applyMatrix4(VM);
           let s = 0;
@@ -456,9 +460,9 @@ void main() {
             const c = Math.cos(r), sn = Math.sin(r), vx = c * F.x - sn * F.z, vy = F.y, vz = -(sn * F.x + c * F.z);
             if (vy <= 0 || y - cp.y >= 0) s = 1 + viewSector(vx, vy, vz);
           }
-          a[j] = s;
+          if (a[j] !== s) { a[j] = s; ch = true; }
         });
-        gr.isec.needsUpdate = true;
+        if (ch) gr.isec.needsUpdate = true;
       }
     }
 
@@ -1029,13 +1033,16 @@ void main() {
       // ease moving shapes from the same shape in the previous frame (nearest in the world)
       const byPtr = new Map();
       if (prev && a < 1) for (const o of prev.objs) { if (!byPtr.has(o.ptr)) byPtr.set(o.ptr, []); byPtr.get(o.ptr).push(o); }
+      // (once per object a frame: asked for by every buffer, shadow and mark, it was worked out and a new array made each time; issue 37)
+      const eased = new Map();
       const ease = o => {
         if (o.fixed) return o.Wm;
         const list = byPtr.get(o.ptr);
         if (!list) return o.Wm;
+        let r = eased.get(o); if (r) return r;
         let best = null, bd = 250 * 250;
         for (const po of list) { const d = (po.Wm[3] - o.Wm[3]) ** 2 + (po.Wm[7] - o.Wm[7]) ** 2 + (po.Wm[11] - o.Wm[11]) ** 2; if (d < bd) { bd = d; best = po; } }
-        return best ? o.Wm.map((v, i) => best.Wm[i] + (v - best.Wm[i]) * a) : o.Wm;
+        r = best ? o.Wm.map((v, i) => best.Wm[i] + (v - best.Wm[i]) * a) : o.Wm; eased.set(o, r); return r;
       };
       const [p5, p8, p9, p10] = cur.p;
       const k = this.ogHide ? 1 : this.wide || 1;   // widescreen: the 4:3 frame is the middle 1/k of the canvas (OG mode: the 4:3 frame alone)
