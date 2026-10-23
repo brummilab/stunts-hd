@@ -38,9 +38,6 @@ function waveOut(ws, phase, env) {
     default: return phase & 0x100 ? 0 : calcExp(LOGSIN[phase & 0xFF] + att);
   }
 }
-// in races (not the original's balance, by choice): the effects channel (1: skids, crash) louder, and the
-// landing thump (8) two octaves up (from ~24 Hz, below what small speakers play) and louder
-const FX = { 1: { gain: 2.0, oct: 0 }, 8: { gain: 2.4, oct: 2 } };
 
 class Op {
   constructor() {
@@ -149,7 +146,7 @@ class OPL extends AudioWorkletProcessor {
     return a > 511 ? 511 : a;
   }
   // advance an operator's phase counter; returns its 10-bit phase
-  phaseStep(op, c, oct) {
+  phaseStep(op, c) {
     let f = c.fnum;
     if (op.vib) {   // vibrato: the F-number's top bits, in eight steps
       let range = (f >> 7) & 7, p = this.vibPos;
@@ -157,8 +154,7 @@ class OPL extends AudioWorkletProcessor {
       if (!(this.regs[0xBD] & 0x40)) range >>= 1;
       f += p & 4 ? -range : range;
     }
-    const block = Math.min(7, c.block + oct);
-    op.acc = (op.acc + ((((f << block) >> 1) * op.mult) >> 1)) & 0x7FFFF;
+    op.acc = (op.acc + ((((f << c.block) >> 1) * op.mult) >> 1)) & 0x7FFFF;
     return op.acc >> 9;
   }
   // one sample of the chip: the mixed output
@@ -176,13 +172,12 @@ class OPL extends AudioWorkletProcessor {
       m.ch = ci; k.ch = ci;
       this.envStep(m); this.envStep(k);
       if (m.stage === 4 && k.stage === 4) { m.out = m.prev = 0; continue; }
-      const fx = this.race ? FX[ci] : null, oct = fx ? fx.oct : 0;
-      const pm = this.phaseStep(m, c, oct), pk = this.phaseStep(k, c, oct);
+      const pm = this.phaseStep(m, c), pk = this.phaseStep(k, c);
       const fb = c.fb ? (m.prev + m.out) >> (9 - c.fb) : 0;
       const mo = waveOut(m.ws, pm + fb, this.att(m));
       m.prev = m.out; m.out = mo;
       const ko = waveOut(k.ws, pk + (c.con ? 0 : mo), this.att(k));
-      mix += (c.con ? mo + ko : ko) * (fx ? fx.gain : 1);
+      mix += c.con ? mo + ko : ko;
     }
     if (this.rhythm) mix += this.percussion();
     return mix;
@@ -199,7 +194,7 @@ class OPL extends AudioWorkletProcessor {
       while (this.rd < wr) {
         const j = (this.rd % RING) * 2, et = F[j];
         if (this.offset != null) { const at = (et - this.offset) / 1000 + this.lat; if (at > t) break; }
-        const p = F[j + 1]; this.race = p >= 0x10000; this.write((p >> 8) & 0xFF, p & 0xFF); this.rd++;
+        const p = F[j + 1]; this.write(p >> 8, p & 0xFF); this.rd++;
       }
       // the chip's samples, linearly interpolated to the output's rate
       this.chipT += step;
@@ -221,15 +216,15 @@ OPL.prototype.percussion = function () {
   let out = 0;
   // bass drum: channel 6, FM (or the carrier alone when its connection is additive, as the chip does)
   { const m = ops[12], k = ops[13]; m.ch = k.ch = 6; this.envStep(m); this.envStep(k);
-    const pm = this.phaseStep(m, c6, 0), pk = this.phaseStep(k, c6, 0);
+    const pm = this.phaseStep(m, c6), pk = this.phaseStep(k, c6);
     const fb = c6.fb ? (m.prev + m.out) >> (9 - c6.fb) : 0, mo = waveOut(m.ws, pm + fb, this.att(m));
     m.prev = m.out; m.out = mo;
     out += waveOut(k.ws, pk + (c6.con ? 0 : mo), this.att(k)) * 2; }
   const hh = ops[14], sd = ops[15], tt = ops[16], tc = ops[17];
   hh.ch = sd.ch = 7; tt.ch = tc.ch = 8;
   for (const o of [hh, sd, tt, tc]) this.envStep(o);
-  const p7 = this.phaseStep(hh, c7, 0); this.phaseStep(sd, c7, 0);
-  const p8t = this.phaseStep(tt, c8, 0), p8 = this.phaseStep(tc, c8, 0);
+  const p7 = this.phaseStep(hh, c7); this.phaseStep(sd, c7);
+  const p8t = this.phaseStep(tt, c8), p8 = this.phaseStep(tc, c8);
   const b2 = (p7 >> 2) & 1, b3 = (p7 >> 3) & 1, b7 = (p7 >> 7) & 1, b8 = (p7 >> 8) & 1, t3 = (p8 >> 3) & 1, t5 = (p8 >> 5) & 1;
   const x = (b2 ^ b7) | (b3 ^ t5) | (t3 ^ t5), nz = this.noise & 1;
   const pHH = (x << 9) | ((x ^ nz) ? 0xD0 : 0x34), pSD = (b8 << 9) | ((b8 ^ nz) << 8), pTC = (x << 9) | 0x80;

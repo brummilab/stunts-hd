@@ -59,9 +59,7 @@ onmessage = async e => {
   // AdLib: the OPL register writes go to the page's synthesiser (opl-worklet.js) through a shared ring
   if (audio) {
     const RING = 8192, I = new Int32Array(audio, 0, 2), R = new Uint8Array(audio, 8, 256), F = new Float64Array(audio, 512, RING * 2), T0 = performance.timeOrigin;
-    // (bit 16: a race on the screen as the write is made, the race frame drawn within the last 0.15 s: the synthesiser's race-only
-    // effects (opl-worklet.js, FX) follow the game's own sound, not the page's guess, which lagged into the menus' music, issue 36)
-    pc.onOpl = (a, v, t) => { R[a] = v; const w = I[0], j = (w % RING) * 2; F[j] = T0 + t; F[j + 1] = (a << 8) | v | (performance.now() - lastUFT < 150 ? 0x10000 : 0); Atomics.store(I, 0, w + 1); };
+    pc.onOpl = (a, v, t) => { R[a] = v; const w = I[0], j = (w % RING) * 2; F[j] = T0 + t; F[j + 1] = (a << 8) | v; Atomics.store(I, 0, w + 1); };
   }
   // the chase camera (C) starts straight behind the car, a little lower than the original's default
   pc.ww(StuntsCode.DSEG, StuntsCode.SYM.custom_camera_azimuth_angle, 512);
@@ -224,7 +222,7 @@ onmessage = async e => {
     return to;
   }
   let intro = null;
-  let lastUF = null, lastUFT = -1e9, inUF = 0, inRun = 0, lastGF = -1;
+  let lastUF = null, inUF = 0, inRun = 0, lastGF = -1;
   // The original's bump bug: after touching the other car, a car's extra wheel angle (car_36MwhlAngle) dies away by
   // 15/16 a frame, rounded down: from a positive value it reaches 0, from -15 it stays (-225 >> 4 = -15), and the car
   // pulls left for good. Here, after the original's own update, a value stuck in -15..-1 shrinks as a positive one does.
@@ -304,7 +302,7 @@ onmessage = async e => {
     return eh(r, m, P, e);
   }; }
   StuntsCode.P.update_frame = function (r, m, P, e) {
-    Atomics.add(k, 1030, 1); lastUFT = performance.now();
+    Atomics.add(k, 1030, 1);
     lastUF = [pc.rw(r.ss, (r.sp + 4) & 0xFFFF), pc.rw(r.ss, (r.sp + 6) & 0xFFFF)];   // (its two arguments, for a picture drawn again: see below)
     const inIntro = pc.rb(D, SY.game_replay_mode) === 1 && pc.rb(D, SY.byte_4393C) !== 0, gf = pc.rw(D, SY.state + 320);
     if (!inIntro) intro = null;
