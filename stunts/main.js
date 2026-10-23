@@ -205,7 +205,6 @@ async function startAudio() {
   node.connect(actx.destination);
   node.port.postMessage({ sab: audio });
   if (window.qolAudio) qolAudio(node);   // (remembered volume, mute)
-  // races: the worklet boosts the effects (opl-worklet.js FX)
   const vol = /[?&]vol=([\d.]+)/.exec(location.search); if (vol) node.port.postMessage({ vol: +vol[1] });   // ?vol=0.1 .. 1
   // the worker stamps writes with epoch milliseconds; tell the synthesiser how they map to its clock
   const sync = () => { const ts = actx.getOutputTimestamp(); if (ts.performanceTime) node.port.postMessage({ offset: performance.timeOrigin + ts.performanceTime - ts.contextTime * 1000 }); };
