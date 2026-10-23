@@ -407,6 +407,8 @@
             <li>Smooth and sharp: full resolution and antialiasing again, lowered only while the graphics chip can't keep up (and raised again when it can), sharper shadows, water reflections back.</li>
             <li>Much lighter on laptops: the game no longer keeps a processor core busy while it waits, the track is drawn in blocks so the shadows draw only what's near them, and the picture is handed to the browser only when it changed.</li>
             <li>Steadier motion: a game frame arriving a little late no longer makes the picture stop and jump.</li>
+            <li>Cleaner picture: no streaks on sunlit walls, no dark line along the top of walls under a roof, and the opponent's colour no longer flashes on your car.</li>
+            <li>Races sound as in the original (as DOSBox plays them): landings and crashes no longer pitched up and boosted, and no landing thump when the menu music starts after a race.</li>
           </ul>
           <details><summary>v1.5.20 &middot; Oct 22 2026</summary><ul>
             <li>Runs far lighter: smooth on laptops on battery and older graphics chips. The 3D view draws at about a million pixels (scaled up), shadows from smaller maps, a 120 Hz screen draws every other picture, and ambient occlusion is off (?full brings everything back).</li>
