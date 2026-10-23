@@ -2923,7 +2923,11 @@ float getShadow( sampler2D shadowMap, vec2 shadowMapSize, float shadowBias, floa
   }
   return v;
 }
-` + s.replace('getShadow', 'getShadowRaw')));
+` + s.replace('getShadow', 'getShadowRaw')) + `
+#ifndef USE_SHADOWMAP
+float ogSunV = 1.0, ogNearV = 1.0, ogNearE = 2.0, ogCarV0 = 1.0, ogCarD0 = 0.0, ogCarV1 = 1.0, ogCarD1 = 0.0;   // (?noshadow: no shadows, the rest as usual)
+uniform float giSoft; uniform float giTexW;
+#endif`);
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
 uniform sampler2D tRefl; uniform float reflOn; uniform vec3 waterC; uniform vec2 reflRes; uniform float waterY;
 uniform vec3 depthC; uniform float depthNear; uniform float depthFar; uniform float depthAmt;
