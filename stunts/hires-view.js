@@ -1220,6 +1220,11 @@ void main() {
         const hy = Math.round((1 - nF.y) * 100), cut = hy - 1;
         const px = y => { y = Math.max(Tt, Math.min(B - 1, y)); const c = this.bgU8[b * 64000 + y * 320 + ((L + R) >> 1)]; return new T.Color(this.pal[c * 3] / 63, this.pal[c * 3 + 1] / 63, this.pal[c * 3 + 2] / 63).convertSRGBToLinear(); };
         // the sky picture down to just above its horizon, shifted to the eased camera
+        // (the sky picture rebuilt and sent to the graphics chip only for a new game picture, area, horizon or palette, not every
+        // display frame: 256 KB each time; issue 37)
+        let ph = 0; for (let i = 0; i < 768; i += 5) ph = (ph * 31 + this.pal[i]) | 0;
+        const skyKey = this.seq + ':' + b + ':' + L + ':' + R + ':' + Tt + ':' + B + ':' + cut + ':' + ph;
+        if (skyKey !== this.skyKey) { this.skyKey = skyKey;
         const d = this.skyData, pal = this.pal;
         d.fill(0);
         // the plain sky: in each column, from the top down, the colours of the picture's top row and other
@@ -1245,8 +1250,9 @@ void main() {
         const sc0 = new T.Color(pal[sky * 3] / 63, pal[sky * 3 + 1] / 63, pal[sky * 3 + 2] / 63), warm = Math.max(0, sc0.r - sc0.b);
         this.domeMat.uniforms.zenith.value.setRGB(0.24 + warm * 0.3, 0.5, 0.88).convertSRGBToLinear();
         this.domeMat.uniforms.horizon.value.setRGB(0.78 + warm * 0.2, 0.88, 0.97).convertSRGBToLinear();
+        this.skyTex.needsUpdate = true; this.skyIdx = sky; this.skySc0 = sc0; }
+        const sky = this.skyIdx, sc0 = this.skySc0;
         this.dome.position.copy(this.camPos); this.dome.visible = true;
-        this.skyTex.needsUpdate = true;
         this.skyQuad.position.set(nN.x - nF.x, nN.y - nF.y, 0); this.skyQuad.visible = true;
         for (const m of [...this.hd.values(), this.natMesh]) if (m) m.visible = false;
         if (this.natMesh) this.natMesh.visible = false;
