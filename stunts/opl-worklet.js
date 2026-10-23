@@ -72,7 +72,6 @@ class OPL extends AudioWorkletProcessor {
       }
       if (m.offset != null) this.offset = m.offset;   // epoch ms - context ms
       if (m.vol != null) this.vol = m.vol;
-      if (m.race != null) this.race = m.race;   // (the page: a race is on screen; effects boosted, see FX)
     };
   }
   keyOn(op) { if (op.stage === 4 || op.stage === 3) { op.stage = 0; op.acc = 0; op.egAcc = 0; if (this.rate(op, op.ar) >= 60) op.env = 0; } }
@@ -200,7 +199,7 @@ class OPL extends AudioWorkletProcessor {
       while (this.rd < wr) {
         const j = (this.rd % RING) * 2, et = F[j];
         if (this.offset != null) { const at = (et - this.offset) / 1000 + this.lat; if (at > t) break; }
-        const p = F[j + 1]; this.write(p >> 8, p & 0xFF); this.rd++;
+        const p = F[j + 1]; this.race = p >= 0x10000; this.write((p >> 8) & 0xFF, p & 0xFF); this.rd++;
       }
       // the chip's samples, linearly interpolated to the output's rate
       this.chipT += step;
